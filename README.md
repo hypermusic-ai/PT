@@ -1,4 +1,4 @@
-# Welcome to Performative-Transactions repository
+# Welcome to Performative Transactions repository
 
 ## Repo structure
 
