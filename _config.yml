@@ -1,0 +1,6 @@
+# _config.yml
+theme: jekyll-theme-minimal
+title: PT
+description: Performative Transactions
+baseurl: "/PT"
+url: "https://MrSawyer.github.io"
