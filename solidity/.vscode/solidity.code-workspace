@@ -13,10 +13,18 @@
 			"path": "../test"
 		}
 	],
+	
   	"settings": {
     	"files.exclude": {
       	"**/.gitkeep": true
     	},
     	"git.openRepositoryInParentFolders": "always",
-  }
+	},
+
+	"tasks": {
+    	"version": "2.0.0",
+    	"tasks": [
+
+    	]
+	}
 }

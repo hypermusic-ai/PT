@@ -4,14 +4,20 @@ import { deploy } from './ethers-lib'
 
 (async () => {
   try {
-    const result = await deploy('Registry', [])
-    console.log(`address: ${result.address}`)
+    const registryResult = await deploy('Registry', [])
+    const registryAddr = await registryResult.getAddress();
+    console.log(`Registry deployed at address: ${registryAddr}`)
+
+    const runnerResult = await deploy('Runner', [registryAddr])
+    const runnerAddr = await runnerResult.getAddress();
+
+    console.log(`Runner deployed at address: ${runnerAddr}`)
+
   } catch (e) {
     console.log(e.message)
   }
   try {
-    const result = await deploy('Runner', [])
-    console.log(`address: ${result.address}`)
+
   } catch (e) {
     console.log(e.message)
   }
