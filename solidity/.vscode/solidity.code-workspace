@@ -1,0 +1,23 @@
+{
+	"folders": [
+		{
+			"name": "Contracts",
+			"path": "../contracts"
+		},
+		{
+			"name": "Scripts",
+			"path": "../scripts"
+		},
+		{
+			"name": "Tests",
+			"path": "../tests"
+		}
+	],
+	"settings": {
+		"files.exclude": {
+    		"**/prettierrc.json": true,
+			"**/.gitignore": true
+
+		}
+	}
+}
