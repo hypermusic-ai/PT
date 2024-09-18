@@ -10,14 +10,13 @@
 		},
 		{
 			"name": "Tests",
-			"path": "../tests"
+			"path": "../test"
 		}
 	],
-	"settings": {
-		"files.exclude": {
-    		"**/prettierrc.json": true,
-			"**/.gitignore": true
-
-		}
-	}
+  	"settings": {
+    	"files.exclude": {
+      	"**/.gitkeep": true
+    	},
+    	"git.openRepositoryInParentFolders": "always",
+  }
 }
