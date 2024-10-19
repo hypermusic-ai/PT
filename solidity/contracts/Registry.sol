@@ -16,11 +16,22 @@ contract Registry
 
     function register(string calldata name, Concept instance) external
     {
+        require(this.contains(name) == false, string.concat(name, " concept of this name already registered"));
         concepts[name] = address(instance);
     }
 
-    function at(string calldata name) external view returns (address)
+    function at(string calldata name) external view returns (Concept)
     {
-        return concepts[name];
+        return Concept(concepts[name]);
+    }
+
+    function clear(string calldata name) external
+    {
+        concepts[name] = address(0);
+    }
+
+    function contains(string calldata name) external view returns (bool)
+    {
+        return concepts[name] != address(0);
     }
 }

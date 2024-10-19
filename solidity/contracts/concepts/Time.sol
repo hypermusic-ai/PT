@@ -7,17 +7,11 @@ import "../Registry.sol";
 
 contract Time is Concept
 {
-    uint8 constant D = 1;
     string[] private composites;
-    function (uint32) pure returns (uint32)[][D] ops = [[next]];
+    function (uint32) pure returns (uint32)[][] ops;
 
-    constructor(address registryAddr) Concept(registryAddr, "Time", composites)
+    constructor(address registryAddr) Concept(registryAddr, "Time", composites, ops)
     {
     }
 
-    function transform(uint8 dimIdx, uint8 opIdx, uint32 x) override external view returns (uint32)
-    {
-        assert(dimIdx < D);
-        return ops[dimIdx][opIdx](x);
-    }
 }
