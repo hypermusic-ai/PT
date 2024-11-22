@@ -17,12 +17,12 @@ namespace pt
             bool Register() 
             { 
                 auto cn = std::make_unique<ConceptType>(*this);
-                return _concept.emplace(cn->Name(), std::move(cn)).second; 
+                return _concepts.emplace(cn->Name(), std::move(cn)).second; 
             }
 
             Concept * At(const std::string & name);
 
         private:
-            std::unordered_map<std::string, std::unique_ptr<Concept>> _concept;
+            std::unordered_map<std::string, std::unique_ptr<Concept>> _concepts;
     };
 }
