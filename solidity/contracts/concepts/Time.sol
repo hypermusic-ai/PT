@@ -7,11 +7,8 @@ import "../Registry.sol";
 
 contract Time is Concept
 {
-    string[] private composites;
-    function (uint32) pure returns (uint32)[][] ops;
+    string[]      private _composites;
 
-    constructor(address registryAddr) Concept(registryAddr, "Time", composites, ops)
-    {
-    }
-
+    constructor(address registryAddr) Concept(registryAddr, "Time", _composites)
+    {}
 }

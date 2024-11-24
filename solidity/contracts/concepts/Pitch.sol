@@ -7,9 +7,8 @@ import "../Registry.sol";
 
 contract Pitch is Concept
 {
-    string[] private composites;
-    function (uint32) pure returns (uint32)[][] ops;
+    string[]      private _composites;
 
-    constructor(address registryAddr) Concept(registryAddr, "Pitch", composites, ops)
+    constructor(address registryAddr) Concept(registryAddr, "Pitch", _composites)
     {}
 }
