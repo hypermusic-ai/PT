@@ -13,14 +13,13 @@ function nop(uint32 x) pure returns (uint32){
 
 abstract contract Concept is Ownable
 {
-    Registry                                    private _registry;
-    Concept[]                                   private _composites;
-    string                                      private _name;
-    uint32                                      private _scalars;
-    uint32                                      private _subTreeSize;
-    Operand[][]                                 private _operands;
-    uint32[][][]                                private _operandsArgs;
-
+    Registry        private _registry;
+    Concept[]       private _composites;
+    string          private _name;
+    uint32          private _scalars;
+    uint32          private _subTreeSize;
+    Operand[][]     private _operands;
+    CallDef         private _operandsCallDef;
     //
     constructor(address registryAddr, string memory name, string[] storage compsNames)
     {
@@ -37,7 +36,7 @@ abstract contract Concept is Ownable
 
         // allocate operands memory
         _operands = new Operand[][](_composites.length);
-        _operandsArgs = new uint32[][][](_composites.length);
+        _operandsCallDef = new CallDef(_composites.length);
 
         // calculate scalars
         if(_composites.length == 0)
@@ -68,28 +67,28 @@ abstract contract Concept is Ownable
         _registry.registerConcept(_name, this);
     }
 
-    function initOperands(CallDef ops) internal
+    function opsCallDef() internal view returns (CallDef)
     {
-        require(ops.getDimensionsCount() == _operands.length);
+        return _operandsCallDef;
+    }
+
+    function initOperands() internal
+    {
+        require(_operandsCallDef.getDimensionsCount() == _operands.length);
 
         for(uint8 dimId = 0; dimId < _operands.length; ++dimId)
         {
-            uint32 opCount = ops.getOperandsCount(dimId);
+            uint32 opCount = _operandsCallDef.getOperandsCount(dimId);
             console.log("operands count ", opCount);
 
-            _operandsArgs[dimId] = new uint32[][](opCount);
             for(uint8 opId = 0; opId < opCount; ++opId)
             {
-                console.log("fetch operand ", ops.names(dimId, opId), " - found: ", _registry.containsOperand(ops.names(dimId, opId)));
-                require(_registry.containsOperand(ops.names(dimId, opId)), string.concat("cannot find operand : ", ops.names(dimId, opId)));
+                console.log("fetch operand ", _operandsCallDef.names(dimId, opId), 
+                    " - found: ", _registry.containsOperand(_operandsCallDef.names(dimId, opId)));
+                require(_registry.containsOperand(_operandsCallDef.names(dimId, opId)), 
+                    string.concat("cannot find operand : ", _operandsCallDef.names(dimId, opId)));
 
-                _operands[dimId].push(_registry.operandAt(ops.names(dimId, opId)));
-
-                uint32 argc = ops.getArgsCount(dimId, opId);
-                for(uint8 argId = 0; argId < argc; ++argId)
-                {
-                    _operandsArgs[dimId][opId].push(ops.args(dimId, opId, argId));
-                }
+                _operands[dimId].push(_registry.operandAt(_operandsCallDef.names(dimId, opId)));
             }
         }
     }
@@ -138,7 +137,7 @@ abstract contract Concept is Ownable
         require(_operands[dimId].length != 0);
         
         opId %= (uint32)(_operands[dimId].length);
-        uint32 out = _operands[dimId][opId].run(x, _operandsArgs[dimId][opId]);
+        uint32 out = _operands[dimId][opId].run(x, _operandsCallDef.getArgs(dimId, opId));
         return out;
     }
 

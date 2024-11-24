@@ -5,9 +5,9 @@ pragma solidity >=0.7.0 <0.9.0;
 import "./Pitch.sol";
 import "./Time.sol";
 
-import "../operands/Nop.sol";
-import "../operands/Add.sol";
-import "../operands/Mul.sol";
+import "../operands/nop.sol";
+import "../operands/add.sol";
+import "../operands/mul.sol";
 
 contract ConceptA is Concept
 {
@@ -15,22 +15,15 @@ contract ConceptA is Concept
     
     constructor(address registryAddr) Concept(registryAddr, "ConceptA", _composites)
     {
-        console.log("init CallDef");
-        // allocate space for operands for all composites
-        CallDef ops = new CallDef(uint32(_composites.length));
-  
-        ops.allocate(0, 4); // allocate space for 4 operands for first composite
-        ops.allocate(1, 3); // allocate space for 3 operand for second composite
+        opsCallDef().push1(0, "Add", [uint32(1)]);
+        opsCallDef().push1(0, "Mul", [uint32(2)]);
+        opsCallDef().push0(0, "Nop");
+        opsCallDef().push1(0, "Add", [uint32(3)]);
 
-        ops.set1(0, 0, "Add", [uint32(1)]);
-        ops.set1(0, 1, "Mul", [uint32(2)]);
-        ops.set0(0, 2, "Nop");
-        ops.set1(0, 3, "Add", [uint32(3)]);
+        opsCallDef().push1(1, "Add", [uint32(1)]);
+        opsCallDef().push1(1, "Add", [uint32(3)]);
+        opsCallDef().push1(1, "Add", [uint32(2)]);
 
-        ops.set1(1, 0, "Add", [uint32(1)]);
-        ops.set1(1, 1, "Add", [uint32(3)]);
-        ops.set1(1, 2, "Add", [uint32(2)]);
-
-        initOperands(ops);
+        initOperands();
     }
 }
