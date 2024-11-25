@@ -39,13 +39,17 @@ FetchContent_MakeAvailable(asio)
 add_library("${PROJECT_NAME}" STATIC "${INCLUDE_DIR}/PT.hpp")
 set(PUBLIC_HEADERS_LIST
     "${INCLUDE_DIR}/PT.hpp"
+    "${INCLUDE_DIR}/index.hpp"
+    "${INCLUDE_DIR}/registry.hpp"
     "${INCLUDE_DIR}/concept-fwd.hpp"
     "${INCLUDE_DIR}/concept.hpp"
-    "${INCLUDE_DIR}/registry.hpp"
+    "${INCLUDE_DIR}/operand-fwd.hpp"
+    "${INCLUDE_DIR}/operand.hpp"
 )
 target_sources("${PROJECT_NAME}" PRIVATE 
     "${SRC_DIR}/PT.cpp"
     "${SRC_DIR}/registry.cpp"
+    "${SRC_DIR}/operand.cpp"
     "${SRC_DIR}/concept.cpp"
 )
 target_include_directories("${PROJECT_NAME}" PUBLIC 
