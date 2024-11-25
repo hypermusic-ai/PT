@@ -22,77 +22,13 @@ project("${PROJECT_NAME}"
 )
 
 message(STATUS "[${PROJECT_NAME}] initializing project ...")
-
-# --------------------------------------------
-# dependencies
-# --------------------------------------------
-
-#message(STATUS "[${PROJECT_NAME}] initializing `OpenSSL` dependency...")
-#find_package(OpenSSL REQUIRED)
-
-message(STATUS "[${PROJECT_NAME}] initializing `asio` dependency...")
-FetchContent_MakeAvailable(asio)
-
 # --------------------------------------------
 # library target
 # --------------------------------------------
 add_library("${PROJECT_NAME}" STATIC "${INCLUDE_DIR}/PT.hpp")
-set(PUBLIC_HEADERS_LIST
-    "${INCLUDE_DIR}/PT.hpp"
-    "${INCLUDE_DIR}/index.hpp"
-    "${INCLUDE_DIR}/registry.hpp"
-    "${INCLUDE_DIR}/concept-fwd.hpp"
-    "${INCLUDE_DIR}/concept.hpp"
-    "${INCLUDE_DIR}/operand-fwd.hpp"
-    "${INCLUDE_DIR}/operand.hpp"
-)
-target_sources("${PROJECT_NAME}" PRIVATE 
-    "${SRC_DIR}/PT.cpp"
-    "${SRC_DIR}/registry.cpp"
-    "${SRC_DIR}/operand.cpp"
-    "${SRC_DIR}/concept.cpp"
-)
-target_include_directories("${PROJECT_NAME}" PUBLIC 
-    "${INCLUDE_DIR}" 
-    "${asio_SOURCE_DIR}/asio/include"
-)
-
-target_link_options("${PROJECT_NAME}" PUBLIC 
-    -static-libgcc
-    -static-libstdc++
-)
-
-target_link_libraries("${PROJECT_NAME}" PUBLIC 
-    #OpenSSL::SSL
-    #OpenSSL::Crypto
-)
-
-# windows specyfic linking
-if (WIN32)
-    target_link_libraries("${PROJECT_NAME}" PUBLIC 
-        ws2_32
-    )
-endif (WIN32)
-
-set_property(TARGET "${PROJECT_NAME}" PROPERTY CXX_STANDARD 23)
-set_target_properties("${PROJECT_NAME}" PROPERTIES PUBLIC_HEADER "${PUBLIC_HEADERS_LIST}")
-set_target_properties("${PROJECT_NAME}" PROPERTIES DEBUG_POSTFIX "_D")
-
 
 # --------------------------------------------
-# executable target
-# --------------------------------------------
-message(STATUS "Configuring executable")
-add_executable("${PROJECT_NAME}_exe" "${SRC_DIR}/main.cpp")
-
-set_property(TARGET "${PROJECT_NAME}_exe" PROPERTY CXX_STANDARD 23)
-set_target_properties("${PROJECT_NAME}_exe" PROPERTIES PUBLIC_HEADER "${PUBLIC_HEADERS_LIST}")
-set_target_properties("${PROJECT_NAME}_exe" PROPERTIES DEBUG_POSTFIX "_D")
-
-target_link_libraries("${PROJECT_NAME}_exe" PRIVATE "${PROJECT_NAME}")
-
-# --------------------------------------------
-# install target
+# install destination
 # --------------------------------------------
 if(DEFINED CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
     message(
@@ -119,13 +55,62 @@ if(NOT DEFINED CMAKE_INSTALL_INCLUDEDIR)
     set(CMAKE_INSTALL_INCLUDEDIR "${INCLUDE_DIR}" CACHE PATH "C header files (include)")
 endif()
 
-install(TARGETS "${PROJECT_NAME}" EXPORT "${PROJECT_NAME}Targets"
-    RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}"                                   # bin
-    LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}"                                   # lib
-    ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}"                                   # lib
-    PUBLIC_HEADER DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/${GLOBAL_NAMESPACE}"     # INCLUDE_DIR/GLOBAL_NAMESPACE
-    INCLUDES DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"                              # INCLUDE_DIR
+# --------------------------------------------
+# dependencies
+# --------------------------------------------
+
+#message(STATUS "[${PROJECT_NAME}] initializing `OpenSSL` dependency...")
+#find_package(OpenSSL REQUIRED)
+
+message(STATUS "[${PROJECT_NAME}] initializing `asio` dependency...")
+FetchContent_MakeAvailable(asio)
+
+# --------------------------------------------
+# submodules initialization
+# --------------------------------------------
+add_subdirectory(native)
+add_subdirectory(network)
+
+# --------------------------------------------
+# library target files
+# --------------------------------------------
+set(PUBLIC_HEADERS_LIST
+    "${INCLUDE_DIR}/PT.hpp"
+    "${INCLUDE_DIR}/index.hpp"
+    "${INCLUDE_DIR}/registry.hpp"
+    "${INCLUDE_DIR}/concept-fwd.hpp"
+    "${INCLUDE_DIR}/concept.hpp"
+    "${INCLUDE_DIR}/operand-fwd.hpp"
+    "${INCLUDE_DIR}/operand.hpp"
 )
+
+target_sources("${PROJECT_NAME}" PRIVATE 
+    "${SRC_DIR}/PT.cpp"
+    "${SRC_DIR}/registry.cpp"
+    "${SRC_DIR}/operand.cpp"
+    "${SRC_DIR}/concept.cpp"
+)
+
+target_include_directories("${PROJECT_NAME}" PUBLIC 
+    "${INCLUDE_DIR}" 
+    "${asio_SOURCE_DIR}/asio/include"
+)
+
+target_link_options("${PROJECT_NAME}" PUBLIC 
+    -static-libgcc
+    -static-libstdc++
+)
+
+target_link_libraries("${PROJECT_NAME}" PUBLIC
+    pt::native
+    pt::network
+    #OpenSSL::SSL
+    #OpenSSL::Crypto
+)
+
+set_property(TARGET "${PROJECT_NAME}" PROPERTY CXX_STANDARD 23)
+set_target_properties("${PROJECT_NAME}" PROPERTIES PUBLIC_HEADER "${PUBLIC_HEADERS_LIST}")
+set_target_properties("${PROJECT_NAME}" PROPERTIES DEBUG_POSTFIX "_D")
 
 # --------------------------------------------
 # tests
@@ -137,3 +122,35 @@ if(BUILD_TESTING)
     add_subdirectory(tests)
     set_property(TARGET "unit-tests" PROPERTY CXX_STANDARD 23)
 endif()
+
+# --------------------------------------------
+# executable target
+# --------------------------------------------
+set(EXECUTABLE_TARGET "${PROJECT_NAME}_exe")
+message(STATUS "Configuring executable")
+add_executable("${EXECUTABLE_TARGET}" "${SRC_DIR}/main.cpp")
+
+set_property(TARGET "${EXECUTABLE_TARGET}" PROPERTY CXX_STANDARD 23)
+set_target_properties("${EXECUTABLE_TARGET}" PROPERTIES PUBLIC_HEADER "${PUBLIC_HEADERS_LIST}")
+set_target_properties("${EXECUTABLE_TARGET}" PROPERTIES DEBUG_POSTFIX "_D")
+
+target_link_libraries("${EXECUTABLE_TARGET}" PUBLIC "${PROJECT_NAME}")
+
+# --------------------------------------------
+# install target
+# --------------------------------------------
+install(TARGETS "${PROJECT_NAME}" EXPORT "${PROJECT_NAME}Targets"
+    RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}"                                   # bin
+    LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}"                                   # lib
+    ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}"                                   # lib
+    PUBLIC_HEADER DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/${GLOBAL_NAMESPACE}"     # INCLUDE_DIR/GLOBAL_NAMESPACE
+    INCLUDES DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"                              # INCLUDE_DIR
+)
+
+install(TARGETS "${EXECUTABLE_TARGET}" EXPORT "${EXECUTABLE_TARGET}Targets"
+    RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}"                                   # bin
+    LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}"                                   # lib
+    ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}"                                   # lib
+    PUBLIC_HEADER DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/${GLOBAL_NAMESPACE}"     # INCLUDE_DIR/GLOBAL_NAMESPACE
+    INCLUDES DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"                              # INCLUDE_DIR
+)

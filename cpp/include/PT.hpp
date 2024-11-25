@@ -1,15 +1,12 @@
 #pragma once
 
-#if defined _WIN32 || defined _WIN64
-    #define WIN32_LEAN_AND_MEAN
-    #include <windows.h>
-#endif
-
-#include <asio.hpp>
-
+#include <native.hpp>
 #include <concept.hpp>
 #include <operand.hpp>
 #include <registry.hpp>
+#include <network.hpp>
+
+#include <asio.hpp>
 
 namespace pt
 {

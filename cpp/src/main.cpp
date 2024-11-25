@@ -102,6 +102,8 @@ void PrintSamples(const std::vector<std::vector<pt::Idx>> & buffer)
 
 int main(int argc, char* argv[])
 {
+    asio::io_context ioContext;
+
     pt::Registry reg;
 
     reg.Register<Nop>();
