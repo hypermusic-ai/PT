@@ -17,12 +17,14 @@ target_sources("${MODULE_NAME}"
 PRIVATE
     "src/server.cpp"
     "src/tcp.cpp"
+    "src/udp.cpp"
 )
 
 set(PUBLIC_HEADERS_LIST
     "include/network.hpp"
     "include/server.hpp"
     "include/tcp.hpp"
+    "include/udp.hpp"
 )
 
 target_link_libraries("${MODULE_NAME}" PUBLIC

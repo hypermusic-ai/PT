@@ -1,11 +1,12 @@
 #pragma once
+#include <iostream>
 
 #include <native.hpp>
 #include <asio.hpp>
 
 namespace pt::network
 {
-    std::string MakeDaytimeString()
+    inline std::string MakeDaytimeString()
     {
       using namespace std; // For time_t, time and ctime;
       time_t now = time(0);

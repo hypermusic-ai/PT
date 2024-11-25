@@ -33,6 +33,7 @@ if (WIN32)
 
     target_link_libraries("${MODULE_NAME}" PUBLIC 
         ws2_32
+        mswsock
     )
 
 endif (WIN32)

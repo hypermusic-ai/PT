@@ -122,5 +122,16 @@ int main(int argc, char* argv[])
     buffer = pt::Gen(reg, "CnB", {7, 0, 0}, 10);
     PrintSamples(buffer);
 
+    try
+    {
+        pt::network::TcpServer tcpServer(ioContext, 7777);
+        pt::network::UdpServer udpServer(ioContext, 7777);
+        ioContext.run();
+    }
+    catch (std::exception& e)
+    {
+        std::cerr << e.what() << std::endl;
+    }
+
     return 0;
 }
