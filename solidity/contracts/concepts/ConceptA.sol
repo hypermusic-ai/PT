@@ -4,13 +4,6 @@ pragma solidity >=0.7.0 <0.9.0;
 
 import "../Concept.sol";
 
-import "./Pitch.sol";
-import "./Time.sol";
-
-import "../operands/Nop.sol";
-import "../operands/Add.sol";
-import "../operands/Mul.sol";
-
 contract ConceptA is ConceptBase
 {
     string[]      private _composites   = ["Pitch", "Time"];
