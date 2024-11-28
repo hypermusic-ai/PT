@@ -138,7 +138,7 @@ abstract contract OperandBase is IOperand, Ownable
         _name = name;
         _argc = argc;
 
-        _registry.registerOperand(_name, this);
+        _registry.registerOperand(_name, address(this));
     }
     
     function getArgsCount() external view returns(uint32)

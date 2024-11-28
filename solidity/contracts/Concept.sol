@@ -5,6 +5,7 @@ pragma solidity >=0.8.2 <0.9.0;
 import "hardhat/console.sol";
 
 import "./Ownable.sol";
+import "./Operand.sol";
 import "./Registry.sol";
 
 interface IConcept is IOwnable
@@ -15,7 +16,7 @@ interface IConcept is IOwnable
     function getSubTreeSize() external view returns (uint32);
     function getCompositesCount() external view returns (uint32);
     function getComposite(uint32 id) external view returns (IConcept);
-    function genSubconceptIndexes(uint32 dimId, uint32 start, uint32[] memory samplesIndexes) view external returns (uint32[] memory);
+    function transform(uint32 dimId, uint32 opId, uint32 x) external view returns (uint32);
 }
 
 abstract contract ConceptBase is IConcept, Ownable
@@ -38,7 +39,7 @@ abstract contract ConceptBase is IConcept, Ownable
         {
             console.log("fetch concept ", compsNames[i], " - found: ", _registry.containsConcept(compsNames[i]));
             require(_registry.containsConcept(compsNames[i]), string.concat("cannot find composite concept: ", compsNames[i]));
-            _composites.push(_registry.conceptAt(compsNames[i]));
+            _composites.push(IConcept(_registry.conceptAt(compsNames[i])));
         }
 
         // allocate operands memory
@@ -71,7 +72,7 @@ abstract contract ConceptBase is IConcept, Ownable
         _name = name;
 
         // register
-        _registry.registerConcept(_name, this);
+        _registry.registerConcept(_name, address(this));
     }
 
     function opsCallDef() internal view returns (CallDef)
@@ -95,7 +96,7 @@ abstract contract ConceptBase is IConcept, Ownable
                 require(_registry.containsOperand(_operandsCallDef.names(dimId, opId)), 
                     string.concat("cannot find operand : ", _operandsCallDef.names(dimId, opId)));
 
-                _operands[dimId].push(_registry.operandAt(_operandsCallDef.names(dimId, opId)));
+                _operands[dimId].push(IOperand(_registry.operandAt(_operandsCallDef.names(dimId, opId))));
             }
         }
     }
@@ -138,7 +139,7 @@ abstract contract ConceptBase is IConcept, Ownable
     }
 
     //
-    function transform(uint32 dimId, uint32 opId, uint32 x) public view returns (uint32)
+    function transform(uint32 dimId, uint32 opId, uint32 x) external view returns (uint32)
     {
         require(dimId < _operands.length, "invalid dimension id");
         require(_operands[dimId].length != 0);
@@ -146,46 +147,5 @@ abstract contract ConceptBase is IConcept, Ownable
         opId %= (uint32)(_operands[dimId].length);
         uint32 out = _operands[dimId][opId].run(x, _operandsCallDef.getArgs(dimId, opId));
         return out;
-    }
-
-    function generateSubconceptSpace(uint32 dimId, uint32 start, uint32 N) public view returns (uint32[] memory)
-    {
-        require(dimId < _operands.length, "invalid dimension id");
-
-        uint32[] memory space = new uint32[](N);
-
-        uint32 x = start;
-        for(uint32 opId = 0; opId < N; ++opId)
-        {
-            space[opId] = x;
-            x = this.transform(dimId, opId, x);
-        }
-
-        return space;
-    }
-
-    function genSubconceptIndexes(uint32 dimId, uint32 start, uint32[] memory samplesIndexes) view external returns (uint32[] memory)
-    {
-        uint32[] memory subspace;
-        uint32[] memory compositeIndexes = new uint32[](samplesIndexes.length);
-        
-        // need to generate subspace from 0 up to max(samplesIndexes) + 1
-        uint32 subspaceSize = 0;
-        for(uint32 i = 0; i < samplesIndexes.length; ++i)
-        {
-            if(samplesIndexes[i] > subspaceSize)subspaceSize = samplesIndexes[i];
-        }
-        subspaceSize += 1;
-
-        // because we need to sample from this space element [max(samplesIndexes)]
-        subspace = this.generateSubconceptSpace(dimId, start, subspaceSize);
-
-        // sample composite subspace
-        for(uint32 i = 0; i < compositeIndexes.length; ++i)
-        {
-            compositeIndexes[i] = subspace[samplesIndexes[i]];
-        }
-
-        return compositeIndexes;
     }
 } 

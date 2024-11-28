@@ -3,7 +3,6 @@
 pragma solidity >=0.7.0 <0.9.0;
 
 import "../Concept.sol";
-import "../Registry.sol";
 
 contract Pitch is ConceptBase
 {

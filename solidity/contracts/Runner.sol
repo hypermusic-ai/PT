@@ -21,7 +21,7 @@ contract Runner is IRunner
         _registry = Registry(registryAddr);
     }
 
-    function printSamples(uint32[][] memory samplesBuffer)pure private 
+    function printSamples(uint32[][] memory samplesBuffer) pure private 
     {
         string memory samplesStr;
         for(uint32 i = 0; i < samplesBuffer.length; ++i)
@@ -34,6 +34,47 @@ contract Runner is IRunner
             }
             console.log("scalar ID ", i, " = ", samplesStr);
         }
+    }
+
+    function generateSubconceptSpace(IConcept concept, uint32 dimId, uint32 start, uint32 N) private view returns (uint32[] memory)
+    {
+        require(dimId < concept.getCompositesCount(), "invalid dimension id");
+
+        uint32[] memory space = new uint32[](N);
+
+        uint32 x = start;
+        for(uint32 opId = 0; opId < N; ++opId)
+        {
+            space[opId] = x;
+            x = concept.transform(dimId, opId, x);
+        }
+
+        return space;
+    }
+
+    function genSubconceptIndexes(IConcept concept, uint32 dimId, uint32 start, uint32[] memory samplesIndexes) private view returns (uint32[] memory)
+    {
+        uint32[] memory subspace;
+        uint32[] memory compositeIndexes = new uint32[](samplesIndexes.length);
+        
+        // need to generate subspace from 0 up to max(samplesIndexes) + 1
+        uint32 subspaceSize = 0;
+        for(uint32 i = 0; i < samplesIndexes.length; ++i)
+        {
+            if(samplesIndexes[i] > subspaceSize)subspaceSize = samplesIndexes[i];
+        }
+        subspaceSize += 1;
+
+        // because we need to sample from this space element [max(samplesIndexes)]
+        subspace = generateSubconceptSpace(concept, dimId, start, subspaceSize);
+
+        // sample composite subspace
+        for(uint32 i = 0; i < compositeIndexes.length; ++i)
+        {
+            compositeIndexes[i] = subspace[samplesIndexes[i]];
+        }
+
+        return compositeIndexes;
     }
 
     function decompose(IConcept concept, uint32[] memory startPoints, uint32 startPointId, uint32[] memory indexes, uint32 dest, uint32[][] memory outBuffer) view private
@@ -61,7 +102,7 @@ contract Runner is IRunner
             if(startPointId < startPoints.length)start = startPoints[startPointId];
 
             // generate given composite concept elements from given starting point
-            compositeIndexes = concept.genSubconceptIndexes(dimId, start, indexes);
+            compositeIndexes = genSubconceptIndexes(concept, dimId, start, indexes);
 
             IConcept subconcept = concept.getComposite(dimId);
 
@@ -81,7 +122,7 @@ contract Runner is IRunner
         require(N > 0, "number of samples must be greater than 0");
         require(_registry.containsConcept(name), "cannot find concept");
 
-        IConcept concept = _registry.conceptAt(name);
+        IConcept concept = IConcept(_registry.conceptAt(name));
 
         uint32 numberOfScalars = concept.getScalarsCount();
         assert(numberOfScalars > 0);

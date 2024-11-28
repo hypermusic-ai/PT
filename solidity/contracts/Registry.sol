@@ -2,9 +2,6 @@
 
 pragma solidity >=0.7.0 <0.9.0;
 
-import "./Concept.sol";
-import "./Operand.sol";
-
 interface IRegistry
 {
     event Fallback(address caller,  string message);
@@ -13,11 +10,11 @@ interface IRegistry
     event ConceptRemoved(address caller, string name);
     event OperandRemoved(address caller, string name);
 
-    function registerConcept(string calldata name, IConcept concept) external;
-    function registerOperand(string calldata name, IOperand operand) external;
+    function registerConcept(string calldata name, address conceptAddr) external;
+    function registerOperand(string calldata name, address operandAddr) external;
 
-    function conceptAt(string calldata name) external view returns (IConcept);
-    function operandAt(string calldata name) external view returns (IOperand);
+    function conceptAt(string calldata name) external view returns (address);
+    function operandAt(string calldata name) external view returns (address);
 
     function clearConcept(string calldata name) external;
     function clearOperand(string calldata name) external;
@@ -43,28 +40,28 @@ contract Registry is IRegistry
         emit Fallback(msg.sender, "Fallback was called");
     }
 
-    function registerConcept(string calldata name, IConcept instance) external {
+    function registerConcept(string calldata name, address conceptAddr) external {
         require(!this.containsConcept(name), string.concat(name, " concept of this name already registered"));
-        _concepts[name] = address(instance);
+        _concepts[name] = conceptAddr;
         _conceptsCount++;
         emit ConceptAdded(msg.sender, name, _concepts[name]);
     }
 
-    function registerOperand(string calldata name, IOperand instance) external {
+    function registerOperand(string calldata name, address operandAddr) external {
         require(!this.containsOperand(name), string.concat(name, " operand of this name already registered"));
-        _operands[name] = address(instance);
+        _operands[name] = operandAddr;
         _operandsCount++;
         emit OperandAdded(msg.sender, name, _operands[name]);
     }
 
-    function conceptAt(string calldata name) external view returns (IConcept)
+    function conceptAt(string calldata name) external view returns (address)
     {
-        return IConcept(_concepts[name]);
+        return _concepts[name];
     }
 
-    function operandAt(string calldata name) external view returns (IOperand)
+    function operandAt(string calldata name) external view returns (address)
     {
-        return IOperand(_operands[name]);
+        return _operands[name];
     }
 
     function clearConcept(string calldata name) external {

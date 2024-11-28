@@ -2,12 +2,14 @@
 
 pragma solidity >=0.7.0 <0.9.0;
 
+import "../Concept.sol";
+
 import "./Pitch.sol";
 import "./Time.sol";
 
-import "../operands/nop.sol";
-import "../operands/add.sol";
-import "../operands/mul.sol";
+import "../operands/Nop.sol";
+import "../operands/Add.sol";
+import "../operands/Mul.sol";
 
 contract ConceptA is ConceptBase
 {
