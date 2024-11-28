@@ -9,11 +9,11 @@ import "../operands/nop.sol";
 import "../operands/add.sol";
 import "../operands/mul.sol";
 
-contract ConceptA is Concept
+contract ConceptA is ConceptBase
 {
     string[]      private _composites   = ["Pitch", "Time"];
     
-    constructor(address registryAddr) Concept(registryAddr, "ConceptA", _composites)
+    constructor(address registryAddr) ConceptBase(registryAddr, "ConceptA", _composites)
     {
         opsCallDef().push1(0, "Add", [uint32(1)]);
         opsCallDef().push1(0, "Mul", [uint32(2)]);

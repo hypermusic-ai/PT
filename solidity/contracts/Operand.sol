@@ -2,7 +2,14 @@
 
 pragma solidity >=0.7.0 <0.9.0;
 
+import "./Ownable.sol";
 import "./Registry.sol";
+
+interface IOperand is IOwnable
+{
+    function getArgsCount() external view returns(uint32);
+    function run(uint32 x, uint32[] calldata args) external view returns (uint32);
+}
 
 contract CallDef
 {
@@ -117,7 +124,7 @@ contract CallDef
     uint32[][][] public args;
 }
 
-abstract contract Operand
+abstract contract OperandBase is IOperand, Ownable
 {
     Registry    private _registry;
     string      private _name;
@@ -138,6 +145,4 @@ abstract contract Operand
     {
         return _argc;
     }
-
-    function run(uint32 x, uint32[] calldata args) external view virtual returns (uint32);
 }

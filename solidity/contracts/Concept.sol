@@ -7,24 +7,31 @@ import "hardhat/console.sol";
 import "./Ownable.sol";
 import "./Registry.sol";
 
-function nop(uint32 x) pure returns (uint32){
-    return (x);
+interface IConcept is IOwnable
+{
+    function getName() external view returns(string memory);
+    function isScalar() external view returns(bool);
+    function getScalarsCount() external view returns (uint32);
+    function getSubTreeSize() external view returns (uint32);
+    function getCompositesCount() external view returns (uint32);
+    function getComposite(uint32 id) external view returns (IConcept);
+    function genSubconceptIndexes(uint32 dimId, uint32 start, uint32[] memory samplesIndexes) view external returns (uint32[] memory);
 }
 
-abstract contract Concept is Ownable
+abstract contract ConceptBase is IConcept, Ownable
 {
-    Registry        private _registry;
-    Concept[]       private _composites;
+    IRegistry       private _registry;
+    IConcept[]      private _composites;
     string          private _name;
     uint32          private _scalars;
     uint32          private _subTreeSize;
-    Operand[][]     private _operands;
+    IOperand[][]    private _operands;
     CallDef         private _operandsCallDef;
     //
     constructor(address registryAddr, string memory name, string[] storage compsNames)
     {
         assert(registryAddr != address(0));
-        _registry = Registry(registryAddr);
+        _registry = IRegistry(registryAddr);
 
         // find subconcepts
         for(uint8 i = 0; i < compsNames.length; ++i)
@@ -35,7 +42,7 @@ abstract contract Concept is Ownable
         }
 
         // allocate operands memory
-        _operands = new Operand[][](_composites.length);
+        _operands = new IOperand[][](_composites.length);
         _operandsCallDef = new CallDef(_composites.length);
 
         // calculate scalars
@@ -94,7 +101,7 @@ abstract contract Concept is Ownable
     }
 
     //
-    function getName() external view returns(string memory)
+    function getName() external  view returns(string memory)
     {
         return _name;
     }
@@ -124,7 +131,7 @@ abstract contract Concept is Ownable
     }
 
     //
-    function getComposite(uint32 id) external view returns (Concept)
+    function getComposite(uint32 id) external view returns (IConcept)
     {
         require(id < _composites.length, "composite id out of range");
         return _composites[id];
@@ -157,7 +164,7 @@ abstract contract Concept is Ownable
         return space;
     }
 
-    function genSubconceptIndexes(uint32 dimId, uint32 start, uint32[] memory samplesIndexes) view public returns (uint32[] memory)
+    function genSubconceptIndexes(uint32 dimId, uint32 start, uint32[] memory samplesIndexes) view external returns (uint32[] memory)
     {
         uint32[] memory subspace;
         uint32[] memory compositeIndexes = new uint32[](samplesIndexes.length);

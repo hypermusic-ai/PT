@@ -5,10 +5,10 @@ pragma solidity >=0.7.0 <0.9.0;
 import "../Concept.sol";
 import "../Registry.sol";
 
-contract Pitch is Concept
+contract Pitch is ConceptBase
 {
     string[]      private _composites;
 
-    constructor(address registryAddr) Concept(registryAddr, "Pitch", _composites)
+    constructor(address registryAddr) ConceptBase(registryAddr, "Pitch", _composites)
     {}
 }

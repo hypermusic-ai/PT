@@ -7,7 +7,12 @@ import "@openzeppelin/contracts/utils/Strings.sol";
 
 import "./Concept.sol";
 
-contract Runner
+interface IRunner
+{
+    function gen(string memory name, uint32 N, uint32[] memory startPoints) view external returns (uint32[][] memory);
+}
+
+contract Runner is IRunner
 {
     Registry private _registry;
 
@@ -31,7 +36,7 @@ contract Runner
         }
     }
 
-    function decompose(Concept concept, uint32[] memory startPoints, uint32 startPointId, uint32[] memory indexes, uint32 dest, uint32[][] memory outBuffer) view private
+    function decompose(IConcept concept, uint32[] memory startPoints, uint32 startPointId, uint32[] memory indexes, uint32 dest, uint32[][] memory outBuffer) view private
     {
         require(dest < outBuffer.length, "buffer to small");
     
@@ -58,7 +63,7 @@ contract Runner
             // generate given composite concept elements from given starting point
             compositeIndexes = concept.genSubconceptIndexes(dimId, start, indexes);
 
-            Concept subconcept = concept.getComposite(dimId);
+            IConcept subconcept = concept.getComposite(dimId);
 
             // recursivly fill out buffer range
             decompose(subconcept, startPoints, startPointId, compositeIndexes, dest, outBuffer);
@@ -76,7 +81,7 @@ contract Runner
         require(N > 0, "number of samples must be greater than 0");
         require(_registry.containsConcept(name), "cannot find concept");
 
-        Concept concept = _registry.conceptAt(name);
+        IConcept concept = _registry.conceptAt(name);
 
         uint32 numberOfScalars = concept.getScalarsCount();
         assert(numberOfScalars > 0);
