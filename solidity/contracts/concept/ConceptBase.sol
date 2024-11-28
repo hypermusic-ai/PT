@@ -2,11 +2,11 @@
 
 pragma solidity >=0.8.2 <0.9.0;
 
-import "contracts/concept/IConcept.sol";
+import "./IConcept.sol";
 
-import "contracts/registry/IRegistry.sol";
-import "contracts/operand/IOperand.sol";
-import "contracts/ownable/OwnableBase.sol";
+import "../registry/IRegistry.sol";
+import "../operand/IOperand.sol";
+import "../ownable/OwnableBase.sol";
 
 abstract contract ConceptBase is IConcept, OwnableBase
 {

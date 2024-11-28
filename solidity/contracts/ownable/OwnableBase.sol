@@ -2,7 +2,7 @@
 
 pragma solidity >=0.7.0 <0.9.0;
 
-import "contracts/ownable/IOwnable.sol";
+import "./IOwnable.sol";
 
 contract OwnableBase is IOwnable
 {

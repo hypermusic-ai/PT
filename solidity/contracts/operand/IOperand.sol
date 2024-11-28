@@ -2,8 +2,8 @@
 
 pragma solidity >=0.7.0 <0.9.0;
 
-import "contracts/ownable/IOwnable.sol";
-import "contracts/registry/IRegistry.sol";
+import "../ownable/IOwnable.sol";
+import "../registry/IRegistry.sol";
 
 interface IOperand is IOwnable
 {

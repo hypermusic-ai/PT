@@ -2,8 +2,8 @@
 
 pragma solidity >=0.7.0 <0.9.0;
 
-import "contracts/operand/IOperand.sol";
-import "contracts/ownable/OwnableBase.sol";
+import "./IOperand.sol";
+import "../ownable/OwnableBase.sol";
 
 abstract contract OperandBase is IOperand, OwnableBase
 {

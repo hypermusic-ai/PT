@@ -2,7 +2,7 @@
 
 pragma solidity >=0.7.0 <0.9.0;
 
-import "contracts/registry/IRegistry.sol";
+import "./IRegistry.sol";
 
 contract Registry is IRegistry
 {

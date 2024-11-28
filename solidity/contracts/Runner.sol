@@ -4,8 +4,8 @@ pragma solidity >=0.7.0 <0.9.0;
 
 import "@openzeppelin/contracts/utils/Strings.sol";
 
-import "contracts/concept/IConcept.sol";
-import "contracts/registry/IRegistry.sol";
+import "./concept/IConcept.sol";
+import "./registry/IRegistry.sol";
 
 interface IRunner
 {
