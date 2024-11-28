@@ -2,7 +2,7 @@
 
 pragma solidity >=0.7.0 <0.9.0;
 
-import "../Concept.sol";
+import "contracts/concept/ConceptBase.sol";
 
 contract Time is ConceptBase
 {

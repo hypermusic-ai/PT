@@ -2,10 +2,10 @@
 
 pragma solidity >=0.7.0 <0.9.0;
 
-import "hardhat/console.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
 
-import "./Concept.sol";
+import "contracts/concept/IConcept.sol";
+import "contracts/registry/IRegistry.sol";
 
 interface IRunner
 {
@@ -14,11 +14,11 @@ interface IRunner
 
 contract Runner is IRunner
 {
-    Registry private _registry;
+    IRegistry private _registry;
 
     constructor(address registryAddr) 
     {
-        _registry = Registry(registryAddr);
+        _registry = IRegistry(registryAddr);
     }
 
     function printSamples(uint32[][] memory samplesBuffer) pure private 

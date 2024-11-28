@@ -2,18 +2,10 @@
 
 pragma solidity >=0.7.0 <0.9.0;
 
-interface IOwnable
+import "contracts/ownable/IOwnable.sol";
+
+contract OwnableBase is IOwnable
 {
-    event OwnerSet(address indexed oldOwner, address indexed newOwner);
-
-    function getOwner() external view returns (address);
-
-    function changeOwner(address newOwner) external;
-}
-
-contract Ownable is IOwnable
-{
-
     address private _owner;
 
     // modifier to check if caller is owner

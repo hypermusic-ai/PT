@@ -2,8 +2,8 @@
 
 pragma solidity >=0.7.0 <0.9.0;
 
-import "./Ownable.sol";
-import "./Registry.sol";
+import "contracts/ownable/IOwnable.sol";
+import "contracts/registry/IRegistry.sol";
 
 interface IOperand is IOwnable
 {
@@ -122,27 +122,4 @@ contract CallDef
 
     string[][] public names;
     uint32[][][] public args;
-}
-
-abstract contract OperandBase is IOperand, Ownable
-{
-    Registry    private _registry;
-    string      private _name;
-    uint32      private _argc;
-
-    constructor(address registryAddr, string memory name, uint32 argc)
-    {
-        require(registryAddr != address(0));
-        _registry = Registry(registryAddr);
-        
-        _name = name;
-        _argc = argc;
-
-        _registry.registerOperand(_name, address(this));
-    }
-    
-    function getArgsCount() external view returns(uint32)
-    {
-        return _argc;
-    }
 }

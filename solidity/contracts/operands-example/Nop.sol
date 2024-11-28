@@ -2,7 +2,7 @@
 
 pragma solidity >=0.7.0 <0.9.0;
 
-import "../Operand.sol";
+import "contracts/operand/OperandBase.sol";
 
 contract Nop is OperandBase
 {

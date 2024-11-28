@@ -2,16 +2,16 @@
 
 pragma solidity >=0.7.0 <0.9.0;
 
-import "../Operand.sol";
+import "contracts/operand/OperandBase.sol";
 
-contract Add is OperandBase
+contract Mul is OperandBase
 {
-    constructor(address registryAddr) OperandBase(registryAddr, "Add", 1)
+    constructor(address registryAddr) OperandBase(registryAddr, "Mul", 1)
     {}
 
     function run(uint32 x, uint32 [] calldata args) view external returns (uint32)
     {
         require(args.length == this.getArgsCount(), "wrong number of arguments");
-        return x + args[0];
+        return x * args[0];
     }
 }
