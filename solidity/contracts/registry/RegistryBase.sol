@@ -18,28 +18,30 @@ contract RegistryBase is IRegistry
         emit Fallback(msg.sender, "Fallback was called");
     }
 
-    function registerConcept(string calldata name, address conceptAddr) external {
+    function registerConcept(string calldata name, IConcept concept) external {
         require(!this.containsConcept(name), string.concat(name, " concept of this name already registered"));
-        _concepts[name] = conceptAddr;
+        _concepts[name] = address(concept);
         _conceptsCount++;
         emit ConceptAdded(msg.sender, name, _concepts[name]);
     }
 
-    function registerOperand(string calldata name, address operandAddr) external {
+    function registerOperand(string calldata name, IOperand operand) external {
         require(!this.containsOperand(name), string.concat(name, " operand of this name already registered"));
-        _operands[name] = operandAddr;
+        _operands[name] = address(operand);
         _operandsCount++;
         emit OperandAdded(msg.sender, name, _operands[name]);
     }
 
-    function conceptAt(string calldata name) external view returns (address)
+    function conceptAt(string calldata name) external view returns (IConcept)
     {
-        return _concepts[name];
+        assert(_concepts[name] != address(0));
+        return IConcept(_concepts[name]);
     }
 
-    function operandAt(string calldata name) external view returns (address)
+    function operandAt(string calldata name) external view returns (IOperand)
     {
-        return _operands[name];
+        assert(_operands[name] != address(0));
+        return IOperand(_operands[name]);
     }
 
     function clearConcept(string calldata name) external {

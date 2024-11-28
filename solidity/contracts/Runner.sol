@@ -2,6 +2,7 @@
 
 pragma solidity >=0.7.0 <0.9.0;
 
+import "hardhat/console.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
 
 import "./concept/IConcept.sol";
@@ -122,7 +123,7 @@ contract Runner is IRunner
         require(N > 0, "number of samples must be greater than 0");
         require(_registry.containsConcept(name), "cannot find concept");
 
-        IConcept concept = IConcept(_registry.conceptAt(name));
+        IConcept concept = _registry.conceptAt(name);
 
         uint32 numberOfScalars = concept.getScalarsCount();
         assert(numberOfScalars > 0);

@@ -10,14 +10,14 @@ contract ConceptB is ConceptBase
 
     constructor(address registryAddr) ConceptBase(registryAddr, "ConceptB", _composites)
     {       
-        opsCallDef().push1(0, "Add", [uint32(1)]);
-        opsCallDef().push1(0, "Mul", [uint32(2)]);
-        opsCallDef().push0(0, "Nop");
-        opsCallDef().push1(0, "Add", [uint32(3)]);
+        opsCallDef().push(0, "Add", [uint32(1)]);
+        opsCallDef().push(0, "Mul", [uint32(2)]);
+        opsCallDef().push(0, "Nop");
+        opsCallDef().push(0, "Add", [uint32(3)]);
 
-        opsCallDef().push1(1, "Add", [uint32(1)]);
-        opsCallDef().push1(1, "Add", [uint32(3)]);
-        opsCallDef().push1(1, "Add", [uint32(2)]);
+        opsCallDef().push(1, "Add", [uint32(1)]);
+        opsCallDef().push(1, "Add", [uint32(3)]);
+        opsCallDef().push(1, "Add", [uint32(2)]);
 
         initOperands();
     }

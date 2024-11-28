@@ -2,6 +2,8 @@
 
 pragma solidity >=0.8.2 <0.9.0;
 
+import "hardhat/console.sol";
+
 import "./IConcept.sol";
 
 import "../registry/IRegistry.sol";
@@ -28,7 +30,7 @@ abstract contract ConceptBase is IConcept, OwnableBase
         {
             console.log("fetch concept ", compsNames[i], " - found: ", _registry.containsConcept(compsNames[i]));
             require(_registry.containsConcept(compsNames[i]), string.concat("cannot find composite concept: ", compsNames[i]));
-            _composites.push(IConcept(_registry.conceptAt(compsNames[i])));
+            _composites.push(_registry.conceptAt(compsNames[i]));
         }
 
         // allocate operands memory
@@ -61,7 +63,7 @@ abstract contract ConceptBase is IConcept, OwnableBase
         _name = name;
 
         // register
-        _registry.registerConcept(_name, address(this));
+        _registry.registerConcept(_name, this);
     }
 
     function opsCallDef() internal view returns (CallDef)
@@ -85,7 +87,7 @@ abstract contract ConceptBase is IConcept, OwnableBase
                 require(_registry.containsOperand(_operandsCallDef.names(dimId, opId)), 
                     string.concat("cannot find operand : ", _operandsCallDef.names(dimId, opId)));
 
-                _operands[dimId].push(IOperand(_registry.operandAt(_operandsCallDef.names(dimId, opId))));
+                _operands[dimId].push(_registry.operandAt(_operandsCallDef.names(dimId, opId)));
             }
         }
     }

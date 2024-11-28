@@ -2,8 +2,6 @@
 
 pragma solidity >=0.8.2 <0.9.0;
 
-import "hardhat/console.sol";
-
 import "../ownable/IOwnable.sol";
 
 interface IConcept is IOwnable

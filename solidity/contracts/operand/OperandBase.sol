@@ -2,7 +2,11 @@
 
 pragma solidity >=0.7.0 <0.9.0;
 
+import "hardhat/console.sol";
+
 import "./IOperand.sol";
+
+import "../registry/IRegistry.sol";
 import "../ownable/OwnableBase.sol";
 
 abstract contract OperandBase is IOperand, OwnableBase
@@ -19,7 +23,7 @@ abstract contract OperandBase is IOperand, OwnableBase
         _name = name;
         _argc = argc;
 
-        _registry.registerOperand(_name, address(this));
+        _registry.registerOperand(_name, this);
     }
     
     function getArgsCount() external view returns(uint32)
