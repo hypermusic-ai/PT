@@ -9,13 +9,13 @@ import { Contract, ContractSendMethod, Options } from 'web3-eth-contract'
  * @param {number} gas gas limit
  * @return {Options} deployed contract
  */
-export const deploy = async (contractName: string, args: Array<any>, from?: string, gas?: number): Promise<Options> => {
+export const deploy = async (contractPath: string, contractName: string, args: Array<any>, from?: string, gas?: number): Promise<Options> => {
 
-  const web3 = new Web3(web3Provider)
+  const web3 = new Web3("http://localhost:8545/")
   console.log(`deploying ${contractName}`)
   // Note that the script needs the ABI which is generated from the compilation artifact.
   // Make sure contract is compiled and artifacts are generated
-  const artifactsPath = `browser/contracts/artifacts/${contractName}.json`
+  const artifactsPath = `browser/contracts/artifacts/${contractPath}/${contractName}.sol/${contractName}.json`
 
   const metadata = JSON.parse(await remix.call('fileManager', 'getFile', artifactsPath))
 

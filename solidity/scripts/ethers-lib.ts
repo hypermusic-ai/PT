@@ -8,12 +8,12 @@ import fs from "fs";
  * @param {Number} accountIndex account index from the exposed account
  * @return {Contract} deployed contract
  */
-export const deploy = async (contractName: string, args: Array<any>, accountIndex?: number): Promise<ethers.Contract> => {
+export const deploy = async (contractPath: string, contractName: string, args: Array<any>, accountIndex?: number): Promise<ethers.Contract> => {
 
   console.log(`deploying ${contractName}`)
   // Note that the script needs the ABI which is generated from the compilation artifact.
   // Make sure contract is compiled and artifacts are generated
-  const artifactsPath = `artifacts/contracts/${contractName}.sol/${contractName}.json` // Change this for different path
+  const artifactsPath = `artifacts/${contractPath}/${contractName}.sol/${contractName}.json` // Change this for different path
 
   const metadata = JSON.parse(fs.readFileSync(artifactsPath, 'utf8'));
 

@@ -4,7 +4,7 @@ pragma solidity >=0.7.0 <0.9.0;
 
 import "./IRegistry.sol";
 
-contract Registry is IRegistry
+contract RegistryBase is IRegistry
 {
     mapping(string => address) private _concepts;
     mapping(string => address) private _operands;
