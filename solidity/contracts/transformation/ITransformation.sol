@@ -4,9 +4,9 @@ pragma solidity >=0.7.0 <0.9.0;
 
 import "../ownable/IOwnable.sol";
 
-interface IOperand is IOwnable
+interface ITransformation is IOwnable
 {
-    /// @notice Get number of arguments for operand
+    /// @notice Get number of arguments for transformation
     function getArgsCount() external view returns(uint32);
 
     /// @notice Run an operator.
@@ -33,7 +33,7 @@ contract CallDef
         return uint32(names.length);
     }
 
-    function getOperandsCount(uint32 dimId) external view returns(uint32)
+    function getTransformationsCount(uint32 dimId) external view returns(uint32)
     {
         require(dimId < this.getDimensionsCount());
         return uint32(names[dimId].length);
@@ -42,24 +42,24 @@ contract CallDef
     function getArgsCount(uint32 dimId, uint32 opId) external view returns(uint32)
     {
         require(dimId < this.getDimensionsCount());
-        require(opId < this.getOperandsCount(dimId));
+        require(opId < this.getTransformationsCount(dimId));
         return uint32(args[dimId][opId].length);
     }
 
-    /// @notice Get arguments of operand at index opId in dimension dimId.
+    /// @notice Get arguments of transformation at index opId in dimension dimId.
     ///
     /// @dev This operation returns args array associated with name at
     /// index opId and dimension dimId.
     function getArgs(uint32 dimId, uint32 opId) external view returns(uint32[] memory)
     {
         require(dimId < this.getDimensionsCount());
-        require(opId < this.getOperandsCount(dimId));
+        require(opId < this.getTransformationsCount(dimId));
         return args[dimId][opId];
     }
 
     /// @notice Push a definition of operator with dynamically allocated argument list.
     ///
-    /// @param dimId The index of dimensions array where new operand should be stored.
+    /// @param dimId The index of dimensions array where new transformation should be stored.
     /// @param opName Name for the newly pushed operator.
     /// @param argsArr Array containing arguments for this operator.
     function push(uint32 dimId, string calldata opName, uint32[] memory argsArr) external
@@ -71,7 +71,7 @@ contract CallDef
 
     /// @notice Push a definition of operator with does not tak any arguments.
     ///
-    /// @param dimId The index of dimensions array where new operand should be stored.
+    /// @param dimId The index of dimensions array where new transformation should be stored.
     /// @param opName Name for the newly pushed operator.
     function push(uint32 dimId, string calldata opName) external
     {
@@ -82,7 +82,7 @@ contract CallDef
 
     /// @notice Push a definition of operator with statically allocated argument list of size 1.
     ///
-    /// @param dimId The index of dimensions array where new operand should be stored.
+    /// @param dimId The index of dimensions array where new transformation should be stored.
     /// @param opName Name for the newly pushed operator.
     /// @param argsArr Array containing arguments for this operator.
     function push(uint32 dimId, string calldata opName, uint32[1] calldata argsArr) external
@@ -95,7 +95,7 @@ contract CallDef
 
     /// @notice Push a definition of operator with statically allocated argument list of size 2.
     ///
-    /// @param dimId The index of dimensions array where new operand should be stored.
+    /// @param dimId The index of dimensions array where new transformation should be stored.
     /// @param opName Name for the newly pushed operator.
     /// @param argsArr Array containing arguments for this operator.
     function push(uint32 dimId, string calldata opName, uint32[2] calldata argsArr) external
@@ -108,7 +108,7 @@ contract CallDef
 
     /// @notice Push a definition of operator with statically allocated argument list of size 3.
     ///
-    /// @param dimId The index of dimensions array where new operand should be stored.
+    /// @param dimId The index of dimensions array where new transformation should be stored.
     /// @param opName Name for the newly pushed operator.
     /// @param argsArr Array containing arguments for this operator.
     function push(uint32 dimId, string calldata opName, uint32[3] calldata argsArr) external
@@ -121,7 +121,7 @@ contract CallDef
 
     /// @notice Push a definition of operator with statically allocated argument list of size 4.
     ///
-    /// @param dimId The index of dimensions array where new operand should be stored.
+    /// @param dimId The index of dimensions array where new transformation should be stored.
     /// @param opName Name for the newly pushed operator.
     /// @param argsArr Array containing arguments for this operator.
     function push(uint32 dimId, string calldata opName, uint32[4] calldata argsArr) external
@@ -134,7 +134,7 @@ contract CallDef
 
     /// @notice Push a definition of operator with statically allocated argument list of size 5.
     ///
-    /// @param dimId The index of dimensions array where new operand should be stored.
+    /// @param dimId The index of dimensions array where new transformation should be stored.
     /// @param opName Name for the newly pushed operator.
     /// @param argsArr Array containing arguments for this operator.
     function push(uint32 dimId, string calldata opName, uint32[5] calldata argsArr) external

@@ -2,11 +2,11 @@
 
 pragma solidity >=0.7.0 <0.9.0;
 
-import "../operand/OperandBase.sol";
+import "../transformation/TransformationBase.sol";
 
-contract Mul is OperandBase
+contract Mul is TransformationBase
 {
-    constructor(address registryAddr) OperandBase(registryAddr, "Mul", 1)
+    constructor(address registryAddr) TransformationBase(registryAddr, "Mul", 1)
     {}
 
     function run(uint32 x, uint32 [] calldata args) view external returns (uint32)

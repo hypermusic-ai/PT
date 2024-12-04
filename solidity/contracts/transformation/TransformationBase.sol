@@ -4,12 +4,12 @@ pragma solidity >=0.7.0 <0.9.0;
 
 import "hardhat/console.sol";
 
-import "./IOperand.sol";
+import "./ITransformation.sol";
 
 import "../registry/IRegistry.sol";
 import "../ownable/OwnableBase.sol";
 
-abstract contract OperandBase is IOperand, OwnableBase
+abstract contract TransformationBase is ITransformation, OwnableBase
 {
     IRegistry    private _registry;
     string      private _name;
@@ -23,7 +23,7 @@ abstract contract OperandBase is IOperand, OwnableBase
         _name = name;
         _argc = argc;
 
-        _registry.registerOperand(_name, this);
+        _registry.registerTransformation(_name, this);
     }
     
     function getArgsCount() external view returns(uint32)

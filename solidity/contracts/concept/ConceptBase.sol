@@ -7,18 +7,18 @@ import "hardhat/console.sol";
 import "./IConcept.sol";
 
 import "../registry/IRegistry.sol";
-import "../operand/IOperand.sol";
+import "../transformation/ITransformation.sol";
 import "../ownable/OwnableBase.sol";
 
 abstract contract ConceptBase is IConcept, OwnableBase
 {
-    IRegistry       private _registry;
-    IConcept[]      private _composites;
-    string          private _name;
-    uint32          private _scalars;
-    uint32          private _subTreeSize;
-    IOperand[][]    private _operands;
-    CallDef         private _operandsCallDef;
+    IRegistry               private _registry;
+    IConcept[]              private _composites;
+    string                  private _name;
+    uint32                  private _scalars;
+    uint32                  private _subTreeSize;
+    ITransformation[][]     private _transformations;
+    CallDef                 private _transformationsCallDef;
     //
     constructor(address registryAddr, string memory name, string[] storage compsNames)
     {
@@ -33,9 +33,9 @@ abstract contract ConceptBase is IConcept, OwnableBase
             _composites.push(_registry.conceptAt(compsNames[i]));
         }
 
-        // allocate operands memory
-        _operands = new IOperand[][](_composites.length);
-        _operandsCallDef = new CallDef(_composites.length);
+        // allocate transformations memory
+        _transformations = new ITransformation[][](_composites.length);
+        _transformationsCallDef = new CallDef(_composites.length);
 
         // calculate scalars
         if(_composites.length == 0)
@@ -66,28 +66,28 @@ abstract contract ConceptBase is IConcept, OwnableBase
         _registry.registerConcept(_name, this);
     }
 
-    function opsCallDef() internal view returns (CallDef)
+    function getCallDef() internal view returns (CallDef)
     {
-        return _operandsCallDef;
+        return _transformationsCallDef;
     }
 
-    function initOperands() internal
+    function initTransformations() internal
     {
-        require(_operandsCallDef.getDimensionsCount() == _operands.length);
+        require(_transformationsCallDef.getDimensionsCount() == _transformations.length);
 
-        for(uint8 dimId = 0; dimId < _operands.length; ++dimId)
+        for(uint8 dimId = 0; dimId < _transformations.length; ++dimId)
         {
-            uint32 opCount = _operandsCallDef.getOperandsCount(dimId);
-            console.log("operands count ", opCount);
+            uint32 opCount = _transformationsCallDef.getTransformationsCount(dimId);
+            console.log("transformation count ", opCount);
 
             for(uint8 opId = 0; opId < opCount; ++opId)
             {
-                console.log("fetch operand ", _operandsCallDef.names(dimId, opId), 
-                    " - found: ", _registry.containsOperand(_operandsCallDef.names(dimId, opId)));
-                require(_registry.containsOperand(_operandsCallDef.names(dimId, opId)), 
-                    string.concat("cannot find operand : ", _operandsCallDef.names(dimId, opId)));
+                console.log("fetch transformation ", _transformationsCallDef.names(dimId, opId), 
+                    " - found: ", _registry.containsTransformation(_transformationsCallDef.names(dimId, opId)));
+                require(_registry.containsTransformation(_transformationsCallDef.names(dimId, opId)), 
+                    string.concat("cannot find transformation : ", _transformationsCallDef.names(dimId, opId)));
 
-                _operands[dimId].push(_registry.operandAt(_operandsCallDef.names(dimId, opId)));
+                _transformations[dimId].push(_registry.transformationAt(_transformationsCallDef.names(dimId, opId)));
             }
         }
     }
@@ -132,11 +132,11 @@ abstract contract ConceptBase is IConcept, OwnableBase
     //
     function transform(uint32 dimId, uint32 opId, uint32 x) external view returns (uint32)
     {
-        require(dimId < _operands.length, "invalid dimension id");
-        require(_operands[dimId].length != 0);
+        require(dimId < _transformations.length, "invalid dimension id");
+        require(_transformations[dimId].length != 0);
         
-        opId %= (uint32)(_operands[dimId].length);
-        uint32 out = _operands[dimId][opId].run(x, _operandsCallDef.getArgs(dimId, opId));
+        opId %= (uint32)(_transformations[dimId].length);
+        uint32 out = _transformations[dimId][opId].run(x, getCallDef().getArgs(dimId, opId));
         return out;
     }
 } 

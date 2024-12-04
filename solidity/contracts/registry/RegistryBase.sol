@@ -7,10 +7,10 @@ import "./IRegistry.sol";
 contract RegistryBase is IRegistry
 {
     mapping(string => address) private _concepts;
-    mapping(string => address) private _operands;
+    mapping(string => address) private _transformations;
 
     uint256 private _conceptsCount;
-    uint256 private _operandsCount;
+    uint256 private _transformationsCount;
 
     // This function is executed on a call to the contract if none of the other
     // functions match the given function signature, or if no data is supplied at all
@@ -25,11 +25,11 @@ contract RegistryBase is IRegistry
         emit ConceptAdded(msg.sender, name, _concepts[name]);
     }
 
-    function registerOperand(string calldata name, IOperand operand) external {
-        require(!this.containsOperand(name), string.concat(name, " operand of this name already registered"));
-        _operands[name] = address(operand);
-        _operandsCount++;
-        emit OperandAdded(msg.sender, name, _operands[name]);
+    function registerTransformation(string calldata name, ITransformation transformation) external {
+        require(!this.containsTransformation(name), string.concat(name, " transformation of this name already registered"));
+        _transformations[name] = address(transformation);
+        _transformationsCount++;
+        emit TransformationAdded(msg.sender, name, _transformations[name]);
     }
 
     function conceptAt(string calldata name) external view returns (IConcept)
@@ -38,10 +38,10 @@ contract RegistryBase is IRegistry
         return IConcept(_concepts[name]);
     }
 
-    function operandAt(string calldata name) external view returns (IOperand)
+    function transformationAt(string calldata name) external view returns (ITransformation)
     {
-        assert(_operands[name] != address(0));
-        return IOperand(_operands[name]);
+        assert(_transformations[name] != address(0));
+        return ITransformation(_transformations[name]);
     }
 
     function clearConcept(string calldata name) external {
@@ -51,11 +51,11 @@ contract RegistryBase is IRegistry
         emit ConceptRemoved(msg.sender, name);
     }
 
-    function clearOperand(string calldata name) external {
-        require(this.containsOperand(name), "Operand does not exist");
-        _operands[name] = address(0);
-        _operandsCount--;
-        emit OperandRemoved(msg.sender, name);
+    function clearTransformation(string calldata name) external {
+        require(this.containsTransformation(name), "transformation does not exist");
+        _transformations[name] = address(0);
+        _transformationsCount--;
+        emit TransformationRemoved(msg.sender, name);
     }
 
     function containsConcept(string calldata name) external view returns (bool)
@@ -63,16 +63,16 @@ contract RegistryBase is IRegistry
         return _concepts[name] != address(0);
     }
 
-    function containsOperand(string calldata name) external view returns (bool)
+    function containsTransformation(string calldata name) external view returns (bool)
     {
-        return _operands[name] != address(0);
+        return _transformations[name] != address(0);
     }
 
     function conceptsCount() external view returns (uint) {
         return _conceptsCount;
     }
 
-    function operandsCount() external view returns (uint) {
-        return _operandsCount;
+    function transformationsCount() external view returns (uint) {
+        return _transformationsCount;
     }
 }
