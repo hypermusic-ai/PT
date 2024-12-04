@@ -4,16 +4,16 @@ pragma solidity >=0.8.2 <0.9.0;
 
 import "hardhat/console.sol";
 
-import "./IConcept.sol";
+import "./IFeature.sol";
 
 import "../registry/IRegistry.sol";
 import "../transformation/ITransformation.sol";
 import "../ownable/OwnableBase.sol";
 
-abstract contract ConceptBase is IConcept, OwnableBase
+abstract contract FeatureBase is IFeature, OwnableBase
 {
     IRegistry               private _registry;
-    IConcept[]              private _composites;
+    IFeature[]              private _composites;
     string                  private _name;
     uint32                  private _scalars;
     uint32                  private _subTreeSize;
@@ -25,12 +25,12 @@ abstract contract ConceptBase is IConcept, OwnableBase
         assert(registryAddr != address(0));
         _registry = IRegistry(registryAddr);
 
-        // find subconcepts
+        // find subfeatures
         for(uint8 i = 0; i < compsNames.length; ++i)
         {
-            console.log("fetch concept ", compsNames[i], " - found: ", _registry.containsConcept(compsNames[i]));
-            require(_registry.containsConcept(compsNames[i]), string.concat("cannot find composite concept: ", compsNames[i]));
-            _composites.push(_registry.conceptAt(compsNames[i]));
+            console.log("fetch feature ", compsNames[i], " - found: ", _registry.containsFeature(compsNames[i]));
+            require(_registry.containsFeature(compsNames[i]), string.concat("cannot find composite feature: ", compsNames[i]));
+            _composites.push(_registry.featureAt(compsNames[i]));
         }
 
         // allocate transformations memory
@@ -63,7 +63,7 @@ abstract contract ConceptBase is IConcept, OwnableBase
         _name = name;
 
         // register
-        _registry.registerConcept(_name, this);
+        _registry.registerFeature(_name, this);
     }
 
     function getCallDef() internal view returns (CallDef)
@@ -123,7 +123,7 @@ abstract contract ConceptBase is IConcept, OwnableBase
     }
 
     //
-    function getComposite(uint32 id) external view returns (IConcept)
+    function getComposite(uint32 id) external view returns (IFeature)
     {
         require(id < _composites.length, "composite id out of range");
         return _composites[id];

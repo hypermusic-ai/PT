@@ -2,29 +2,29 @@
 
 pragma solidity >=0.7.0 <0.9.0;
 
-import "../concept/IConcept.sol";
+import "../feature/IFeature.sol";
 import "../transformation/ITransformation.sol";
 
 interface IRegistry
 {
     event Fallback(address caller,  string message);
-    event ConceptAdded(address caller, string name, address conceptAddr);
+    event FeatureAdded(address caller, string name, address featureAddr);
     event TransformationAdded(address caller, string name, address transformationAddr);
-    event ConceptRemoved(address caller, string name);
+    event FeatureRemoved(address caller, string name);
     event TransformationRemoved(address caller, string name);
 
-    function registerConcept(string calldata name, IConcept concept) external;
+    function registerFeature(string calldata name, IFeature feature) external;
     function registerTransformation(string calldata name, ITransformation transformation) external;
 
-    function conceptAt(string calldata name) external view returns (IConcept);
+    function featureAt(string calldata name) external view returns (IFeature);
     function transformationAt(string calldata name) external view returns (ITransformation);
 
-    function clearConcept(string calldata name) external;
+    function clearFeature(string calldata name) external;
     function clearTransformation(string calldata name) external;
 
-    function containsConcept(string calldata name) external view returns (bool);
+    function containsFeature(string calldata name) external view returns (bool);
     function containsTransformation(string calldata name) external view returns (bool);
 
-    function conceptsCount() external view returns (uint);
+    function featuresCount() external view returns (uint);
     function transformationsCount() external view returns (uint);
 }

@@ -13,11 +13,11 @@ import "remix_accounts.sol";
 import "../contracts/Runner.sol";
 import "../contracts/Registry.sol";
 
-import "../contracts/concepts/Pitch.sol";
-import "../contracts/concepts/Time.sol";
-import "../contracts/concepts/Duration.sol";
-import "../contracts/concepts/ConceptA.sol";
-import "../contracts/concepts/ConceptB.sol";
+import "../contracts/feature/Pitch.sol";
+import "../contracts/feature/Time.sol";
+import "../contracts/feature/Duration.sol";
+import "../contracts/feature/FeatureA.sol";
+import "../contracts/feature/FeatureB.sol";
 
 // File name has to end with '_test.sol', this file can contain more than one testSuite contracts
 contract testSuite {
@@ -30,8 +30,8 @@ contract testSuite {
     Pitch _pitch;
     Time _time;
     Duration _duration;
-    ConceptA _conceptA;
-    ConceptB _conceptB;
+    FeatureA _featureA;
+    FeatureB _featureB;
 
     /// 'beforeAll' runs before all other tests
     /// More special functions are: 'beforeEach', 'beforeAll', 'afterEach' & 'afterAll'
@@ -44,8 +44,8 @@ contract testSuite {
         _pitch = Pitch(testRegistry);
         _time = Time(testRegistry);
         _duration = Duration(testRegistry);
-        _conceptA = ConceptA(testRegistry);
-        _conceptB = ConceptB(testRegistry);
+        _featureA = FeatureA(testRegistry);
+        _featureB = FeatureB(testRegistry);
     }
 
     function UT0_Pitch(uint32 N) public {

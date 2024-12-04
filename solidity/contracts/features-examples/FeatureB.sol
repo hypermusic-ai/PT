@@ -2,13 +2,13 @@
 
 pragma solidity >=0.7.0 <0.9.0;
 
-import "../concept/ConceptBase.sol";
+import "../feature/FeatureBase.sol";
 
-contract ConceptB is ConceptBase
+contract FeatureB is FeatureBase
 {
-    string[]      private _composites   = ["Duration", "ConceptA"];
+    string[]      private _composites   = ["Duration", "FeatureA"];
 
-    constructor(address registryAddr) ConceptBase(registryAddr, "ConceptB", _composites)
+    constructor(address registryAddr) FeatureBase(registryAddr, "FeatureB", _composites)
     {       
         getCallDef().push(0, "Add", [uint32(1)]);
         getCallDef().push(0, "Mul", [uint32(2)]);
