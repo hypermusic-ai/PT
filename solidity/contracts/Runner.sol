@@ -10,7 +10,7 @@ import "./registry/IRegistry.sol";
 
 interface IRunner
 {
-    function gen(string memory name, uint32 N, uint32[] memory startPoints) view external returns (uint32[][] memory);
+    function gen(string memory name, uint32 N, uint32[] memory startPoints) external returns (uint32[][] memory);
 }
 
 contract Runner is IRunner
@@ -78,15 +78,18 @@ contract Runner is IRunner
         return compositeIndexes;
     }
 
-    function decompose(IFeature feature, uint32[] memory startPoints, uint32 startPointId, uint32[] memory indexes, uint32 dest, uint32[][] memory outBuffer) view private
+    function decompose(IFeature feature, uint32[] memory startPoints, uint32 startPointId, uint32[] memory indexes, uint32 dest, uint32[][] memory outBuffer) private
     {
         require(dest < outBuffer.length, "buffer to small");
-    
+        require(feature.checkCondition(), "feature condition not met"); // feature check condition
+
+
         if(feature.isScalar()){
             console.log(feature.getName(), " is scalar feature, saving samples on destination ", dest);
             for(uint i = 0; i < outBuffer[dest].length; ++i){
                 outBuffer[dest][i] = indexes[i];
             }
+            // feature condition update
             return;
         }
 
@@ -116,9 +119,12 @@ contract Runner is IRunner
             //shift starting point
             startPointId += subfeature.getSubTreeSize() + 1;
         }
+
+        // feature condition update
+        feature.updateCondition();
     }
 
-    function gen(string memory name, uint32 N, uint32[] memory startPoints) view external returns (uint32[][] memory)
+    function gen(string memory name, uint32 N, uint32[] memory startPoints) external returns (uint32[][] memory)
     {
         require(N > 0, "number of samples must be greater than 0");
         require(_registry.containsFeature(name), "cannot find feature");

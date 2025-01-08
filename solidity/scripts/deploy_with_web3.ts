@@ -3,17 +3,19 @@
 import { deploy } from './web3-lib'
 
 (async () => {
-  try {
-    const result = await deploy("contracts/registry",'RegistryBase', [])
-    console.log(`address: ${result.address}`)
-  } catch (e) {
-    console.log(e.message)
-  }
 
-  try{
-    const result = await deploy("contracts/runner", "Runner", [])
-    console.log(`address: ${result.address}`)
-  } catch (e) {
-    console.log(e.message)
+  const contracts = [
+    ["contracts/registry","RegistryBase"],
+    ["contracts/runner", "Runner"]
+  ];
+
+  for(const contract of contracts){
+    try {
+      const result = await deploy(contract[0], contract[1], [])
+      console.log(`address: ${result.address}`)
+    }catch(e)
+    {
+      console.log(e.message);
+    }
   }
 })()

@@ -25,6 +25,7 @@ contract testSuite {
     address payable private _wallet;
 
     address testRegistry;
+    IRegistry private _registry;
     address testRunner;
 
     Pitch _pitch;

@@ -7,12 +7,15 @@ import "hardhat/console.sol";
 import "./IFeature.sol";
 
 import "../registry/IRegistry.sol";
+import "../condition/ICondition.sol";
 import "../transformation/ITransformation.sol";
+
 import "../ownable/OwnableBase.sol";
 
 abstract contract FeatureBase is IFeature, OwnableBase
 {
     IRegistry               private _registry;
+    ICondition              private _condition;
     IFeature[]              private _composites;
     string                  private _name;
     uint32                  private _scalars;
@@ -20,11 +23,12 @@ abstract contract FeatureBase is IFeature, OwnableBase
     ITransformation[][]     private _transformations;
     CallDef                 private _transformationsCallDef;
     //
-    constructor(address registryAddr, string memory name, string[] storage compsNames)
+    constructor(address registryAddr, ICondition condition, string memory name, string[] storage compsNames)
     {
         assert(registryAddr != address(0));
         _registry = IRegistry(registryAddr);
-
+        _condition = condition;
+        
         // find subfeatures
         for(uint8 i = 0; i < compsNames.length; ++i)
         {
@@ -138,5 +142,15 @@ abstract contract FeatureBase is IFeature, OwnableBase
         opId %= (uint32)(_transformations[dimId].length);
         uint32 out = _transformations[dimId][opId].run(x, getCallDef().getArgs(dimId, opId));
         return out;
+    }
+
+    function checkCondition() external view override returns(bool)
+    {
+        return _condition.check();
+    }
+
+    function updateCondition() external override
+    {
+        return _condition.update();
     }
 } 
