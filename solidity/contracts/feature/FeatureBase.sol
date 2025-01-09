@@ -34,7 +34,7 @@ abstract contract FeatureBase is IFeature, OwnableBase
         {
             console.log("fetch feature ", compsNames[i], " - found: ", _registry.containsFeature(compsNames[i]));
             require(_registry.containsFeature(compsNames[i]), string.concat("cannot find composite feature: ", compsNames[i]));
-            _composites.push(_registry.featureAt(compsNames[i]));
+            _composites.push(_registry.getFeature(compsNames[i]));
         }
 
         // allocate transformations memory
@@ -91,7 +91,7 @@ abstract contract FeatureBase is IFeature, OwnableBase
                 require(_registry.containsTransformation(_transformationsCallDef.names(dimId, opId)), 
                     string.concat("cannot find transformation : ", _transformationsCallDef.names(dimId, opId)));
 
-                _transformations[dimId].push(_registry.transformationAt(_transformationsCallDef.names(dimId, opId)));
+                _transformations[dimId].push(_registry.getTransformation(_transformationsCallDef.names(dimId, opId)));
             }
         }
     }

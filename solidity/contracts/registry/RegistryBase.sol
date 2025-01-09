@@ -8,9 +8,11 @@ contract RegistryBase is IRegistry
 {
     mapping(string => address) private _features;
     mapping(string => address) private _transformations;
+    mapping(string => mapping(string => address)) private _runInstances;
 
     uint256 private _featuresCount;
     uint256 private _transformationsCount;
+    mapping(string => uint256) private _runInstancesCount;
 
     // This function is executed on a call to the contract if none of the other
     // functions match the given function signature, or if no data is supplied at all
@@ -32,16 +34,30 @@ contract RegistryBase is IRegistry
         emit TransformationAdded(msg.sender, name, _transformations[name]);
     }
 
-    function featureAt(string calldata name) external view returns (IFeature)
+    function registerRunInstance(string calldata featureName, string calldata runInstanceName, IRunInstance runInstance) external
+    {
+        require(!this.containsRunInstance(featureName, runInstanceName), string.concat(featureName, ":", runInstanceName, " RunInstance already registered"));
+        _runInstances[featureName][runInstanceName] = address(runInstance);
+        _runInstancesCount[featureName]++;
+        emit RunInstanceAdded(msg.sender, featureName, runInstanceName, _runInstances[featureName][runInstanceName]);
+    }
+
+    function getFeature(string calldata name) external view returns (IFeature)
     {
         assert(_features[name] != address(0));
         return IFeature(_features[name]);
     }
 
-    function transformationAt(string calldata name) external view returns (ITransformation)
+    function getTransformation(string calldata name) external view returns (ITransformation)
     {
         assert(_transformations[name] != address(0));
         return ITransformation(_transformations[name]);
+    }
+
+    function getRunInstance(string calldata featureName, string calldata runInstanceName) external view returns (IRunInstance)
+    {
+        assert(_runInstances[featureName][runInstanceName] != address(0));
+        return IRunInstance(_runInstances[featureName][runInstanceName]);
     }
 
     function clearFeature(string calldata name) external {
@@ -58,6 +74,13 @@ contract RegistryBase is IRegistry
         emit TransformationRemoved(msg.sender, name);
     }
 
+    function clearRunInstance(string calldata featureName, string calldata runInstanceName) external {
+        require(this.containsRunInstance(featureName, runInstanceName), "Run Instance does not exist");
+        _runInstances[featureName][runInstanceName] = address(0);
+        _runInstancesCount[featureName]--;
+        emit RunInstanceRemoved(msg.sender, featureName, runInstanceName);
+    }
+
     function containsFeature(string calldata name) external view returns (bool)
     {
         return _features[name] != address(0);
@@ -68,11 +91,20 @@ contract RegistryBase is IRegistry
         return _transformations[name] != address(0);
     }
 
+    function containsRunInstance(string calldata featureName, string calldata runInstanceName) external view returns (bool)
+    {
+        return _runInstances[featureName][runInstanceName] != address(0);
+    }
+
     function featuresCount() external view returns (uint) {
         return _featuresCount;
     }
 
     function transformationsCount() external view returns (uint) {
         return _transformationsCount;
+    }
+
+    function runInstancesCount(string calldata featureName) external view returns (uint) {
+        return _runInstancesCount[featureName];
     }
 }

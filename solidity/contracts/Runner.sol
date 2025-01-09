@@ -129,7 +129,7 @@ contract Runner is IRunner
         require(N > 0, "number of samples must be greater than 0");
         require(_registry.containsFeature(name), "cannot find feature");
 
-        IFeature feature = _registry.featureAt(name);
+        IFeature feature = _registry.getFeature(name);
 
         uint32 numberOfScalars = feature.getScalarsCount();
         assert(numberOfScalars > 0);
