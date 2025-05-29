@@ -2,8 +2,6 @@
 
 pragma solidity >=0.8.2 <0.9.0;
 
-import "hardhat/console.sol";
-
 import "./IFeature.sol";
 
 import "../registry/IRegistry.sol";
@@ -22,6 +20,9 @@ abstract contract FeatureBase is IFeature, OwnableBase
     uint32                  private _subTreeSize;
     ITransformation[][]     private _transformations;
     CallDef                 private _transformationsCallDef;
+    
+    event Debug(string label, string value);
+    
     //
     constructor(address registryAddr, ICondition condition, string memory name, string[] storage compsNames)
     {
@@ -32,8 +33,11 @@ abstract contract FeatureBase is IFeature, OwnableBase
         // find subfeatures
         for(uint8 i = 0; i < compsNames.length; ++i)
         {
-            console.log("fetch feature ", compsNames[i], " - found: ", _registry.containsFeature(compsNames[i]));
+            emit Debug("fetch feature before require", compsNames[i]);
             require(_registry.containsFeature(compsNames[i]), string.concat("cannot find composite feature: ", compsNames[i]));
+            bool found = _registry.containsFeature(compsNames[i]);
+            emit Debug("fetch feature after require", compsNames[i]);
+            
             _composites.push(_registry.getFeature(compsNames[i]));
         }
 
@@ -82,12 +86,9 @@ abstract contract FeatureBase is IFeature, OwnableBase
         for(uint8 dimId = 0; dimId < _transformations.length; ++dimId)
         {
             uint32 opCount = _transformationsCallDef.getTransformationsCount(dimId);
-            console.log("transformation count ", opCount);
 
             for(uint8 opId = 0; opId < opCount; ++opId)
             {
-                console.log("fetch transformation ", _transformationsCallDef.names(dimId, opId), 
-                    " - found: ", _registry.containsTransformation(_transformationsCallDef.names(dimId, opId)));
                 require(_registry.containsTransformation(_transformationsCallDef.names(dimId, opId)), 
                     string.concat("cannot find transformation : ", _transformationsCallDef.names(dimId, opId)));
 
@@ -137,7 +138,8 @@ abstract contract FeatureBase is IFeature, OwnableBase
     function transform(uint32 dimId, uint32 opId, uint32 x) external view returns (uint32)
     {
         require(dimId < _transformations.length, "invalid dimension id");
-        require(_transformations[dimId].length != 0);
+        // no transformation for this dimension
+        if(_transformations[dimId].length == 0)return x;
         
         opId %= (uint32)(_transformations[dimId].length);
         uint32 out = _transformations[dimId][opId].run(x, getCallDef().getArgs(dimId, opId));

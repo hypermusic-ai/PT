@@ -2,7 +2,6 @@
 
 pragma solidity >=0.7.0 <0.9.0;
 
-import "hardhat/console.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
 
 import "./feature/IFeature.sol";
@@ -10,8 +9,10 @@ import "./registry/IRegistry.sol";
 
 interface IRunner
 {
-    function gen(string memory name, uint32 N, uint32[] memory startPoints) external returns (uint32[][] memory);
+    function gen(string memory name, uint32 N) external returns (uint32[][] memory);
 }
+
+event Debug(string label, string value);
 
 contract Runner is IRunner
 {
@@ -22,23 +23,10 @@ contract Runner is IRunner
         _registry = IRegistry(registryAddr);
     }
 
-    function printSamples(uint32[][] memory samplesBuffer) pure private 
+    function generateSubfeatureSpace(IFeature feature, uint32 dimId, uint32 start, uint32 N) private returns (uint32[] memory)
     {
-        string memory samplesStr;
-        for(uint32 i = 0; i < samplesBuffer.length; ++i)
-        {
-            samplesStr = "";
-            for(uint32 n = 0; n < samplesBuffer[i].length; ++n)
-            {
-                samplesStr = string.concat(samplesStr, " ");
-                samplesStr = string.concat(samplesStr, Strings.toString((uint256)(samplesBuffer[i][n])));
-            }
-            console.log("scalar ID ", i, " = ", samplesStr);
-        }
-    }
+        emit Debug("generateSubfeatureSpace", "");
 
-    function generateSubfeatureSpace(IFeature feature, uint32 dimId, uint32 start, uint32 N) private view returns (uint32[] memory)
-    {
         require(dimId < feature.getCompositesCount(), "invalid dimension id");
 
         uint32[] memory space = new uint32[](N);
@@ -53,7 +41,7 @@ contract Runner is IRunner
         return space;
     }
 
-    function genSubfeatureIndexes(IFeature feature, uint32 dimId, uint32 start, uint32[] memory samplesIndexes) private view returns (uint32[] memory)
+    function genSubfeatureIndexes(IFeature feature, uint32 dimId, uint32 start, uint32[] memory samplesIndexes) private returns (uint32[] memory)
     {
         uint32[] memory subspace;
         uint32[] memory compositeIndexes = new uint32[](samplesIndexes.length);
@@ -65,6 +53,7 @@ contract Runner is IRunner
             if(samplesIndexes[i] > subspaceSize)subspaceSize = samplesIndexes[i];
         }
         subspaceSize += 1;
+        emit Debug("genSubfeatureIndexes subspaceSize", Strings.toString(subspaceSize));
 
         // because we need to sample from this space element [max(samplesIndexes)]
         subspace = generateSubfeatureSpace(feature, dimId, start, subspaceSize);
@@ -85,7 +74,6 @@ contract Runner is IRunner
 
 
         if(feature.isScalar()){
-            console.log(feature.getName(), " is scalar feature, saving samples on destination ", dest);
             for(uint i = 0; i < outBuffer[dest].length; ++i){
                 outBuffer[dest][i] = indexes[i];
             }
@@ -93,22 +81,25 @@ contract Runner is IRunner
             return;
         }
 
-        console.log(feature.getName(), " is a composite feature, perform decomposition");
-
         // from which starting point should we generate actual composite feature
         uint32 start = 0;
 
         uint32[] memory compositeIndexes;
+        
+        emit Debug("decompose loop start", feature.getName());
 
         // for every composite run decompose at designated buffer index
         for(uint32 dimId = 0; dimId < feature.getCompositesCount(); ++dimId)
         {
+            emit Debug("decompose", Strings.toString(dimId));
+
             if(startPointId < startPoints.length)start = startPoints[startPointId];
 
             // generate given composite feature elements from given starting point
             compositeIndexes = genSubfeatureIndexes(feature, dimId, start, indexes);
 
             IFeature subfeature = feature.getComposite(dimId);
+            emit Debug("decompose subfeature", subfeature.getName());
 
             // recursivly fill out buffer range
             decompose(subfeature, startPoints, startPointId, compositeIndexes, dest, outBuffer);
@@ -119,13 +110,20 @@ contract Runner is IRunner
             //shift starting point
             startPointId += subfeature.getSubTreeSize() + 1;
         }
+        
+        emit Debug("decompose loop end", feature.getName());
 
         // feature condition update
-        feature.updateCondition();
+        //feature.updateCondition();
     }
 
-    function gen(string memory name, uint32 N, uint32[] memory startPoints) external returns (uint32[][] memory)
+
+    function gen(string memory name, uint32 N) external returns (uint32[][] memory)
     {
+        emit Debug("gen called", Strings.toString(N));
+
+        // TODO as parameter
+        uint32[] memory startPoints;
         require(N > 0, "number of samples must be greater than 0");
         require(_registry.containsFeature(name), "cannot find feature");
 
@@ -133,6 +131,7 @@ contract Runner is IRunner
 
         uint32 numberOfScalars = feature.getScalarsCount();
         assert(numberOfScalars > 0);
+        emit Debug("numberOfScalars", Strings.toString(numberOfScalars));
 
         // allocate memory for scalar data
         uint32[][] memory samplesBuffer = new uint32[][](numberOfScalars);
@@ -140,8 +139,6 @@ contract Runner is IRunner
         {
             samplesBuffer[i] = new uint32[](N);
         }
-
-        console.log("buffer allocated ", samplesBuffer.length, "x", samplesBuffer[0].length);
 
         // we will generate sequential list of N objects from actual feature
         // generate 0th element from conept
@@ -162,8 +159,6 @@ contract Runner is IRunner
 
         decompose(feature, startPoints, 1, indexes, 0, samplesBuffer);
         
-        printSamples(samplesBuffer);
-
         return (samplesBuffer);
     }
 }
