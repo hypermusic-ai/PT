@@ -2,6 +2,8 @@
 
 pragma solidity >=0.8.2 <0.9.0;
 
+import "@openzeppelin/contracts/utils/Strings.sol";
+
 import "./IFeature.sol";
 
 import "../registry/IRegistry.sol";
@@ -9,6 +11,8 @@ import "../condition/ICondition.sol";
 import "../transformation/ITransformation.sol";
 
 import "../ownable/OwnableBase.sol";
+
+event Debug(string label, string value);
 
 abstract contract FeatureBase is IFeature, OwnableBase
 {
@@ -20,9 +24,7 @@ abstract contract FeatureBase is IFeature, OwnableBase
     uint32                  private _subTreeSize;
     ITransformation[][]     private _transformations;
     CallDef                 private _transformationsCallDef;
-    
-    event Debug(string label, string value);
-    
+        
     //
     constructor(address registryAddr, ICondition condition, string memory name, string[] storage compsNames)
     {
@@ -30,19 +32,16 @@ abstract contract FeatureBase is IFeature, OwnableBase
         _registry = IRegistry(registryAddr);
         _condition = condition;
         
+        emit Debug("FeatureBase compsNames.length", Strings.toString(compsNames.length));
+
         // find subfeatures
-        for(uint8 i = 0; i < compsNames.length; ++i)
+        for(uint32 i = 0; i < compsNames.length; ++i)
         {
-            emit Debug("fetch feature before require", compsNames[i]);
             require(_registry.containsFeature(compsNames[i]), string.concat("cannot find composite feature: ", compsNames[i]));
-            bool found = _registry.containsFeature(compsNames[i]);
-            emit Debug("fetch feature after require", compsNames[i]);
-            
             _composites.push(_registry.getFeature(compsNames[i]));
         }
 
         // allocate transformations memory
-        _transformations = new ITransformation[][](_composites.length);
         _transformationsCallDef = new CallDef(_composites.length);
 
         // calculate scalars
@@ -54,18 +53,19 @@ abstract contract FeatureBase is IFeature, OwnableBase
         }
         else 
         {
+            _transformations = new ITransformation[][](_composites.length);
+
             // composite type
             _scalars = 0;
             _subTreeSize = (uint32)(_composites.length);
-            for(uint32 i=0; i < _composites.length; ++i)
+
+            for(uint32 i = 0; i < _composites.length; ++i)
             {
                 _scalars += _composites[i].getScalarsCount();
                 _subTreeSize += _composites[i].getSubTreeSize();
             }
         }
         assert(_scalars > 0);
-        assert((_scalars == 1 && _composites.length == 0) 
-            || (_scalars > 1 && _composites.length > 0));
 
         // set name
         _name = name;
