@@ -7,9 +7,14 @@ import "@openzeppelin/contracts/utils/Strings.sol";
 import "./feature/IFeature.sol";
 import "./registry/IRegistry.sol";
 
+struct RunningInstance {
+    uint32 startPoint;
+    uint32 transformShift;
+}
+
 interface IRunner
 {
-    function gen(string memory name, uint32 N) external returns (uint32[][] memory);
+    function gen(string memory name, uint32 N, RunningInstance[] memory runningInstances) external returns (uint32[][] memory);
 }
 
 event Debug(string label, string value);
@@ -23,7 +28,7 @@ contract Runner is IRunner
         _registry = IRegistry(registryAddr);
     }
 
-    function generateSubfeatureSpace(IFeature feature, uint32 dimId, uint32 start, uint32 N) private returns (uint32[] memory)
+    function generateSubfeatureSpace(IFeature feature, uint32 dimId, RunningInstance memory runningInstance, uint32 N) private returns (uint32[] memory)
     {
         emit Debug("generateSubfeatureSpace", "");
 
@@ -31,17 +36,17 @@ contract Runner is IRunner
 
         uint32[] memory space = new uint32[](N);
 
-        uint32 x = start;
+        uint32 x = runningInstance.startPoint;
         for(uint32 opId = 0; opId < N; ++opId)
         {
             space[opId] = x;
-            x = feature.transform(dimId, opId, x);
+            x = feature.transform(dimId, opId + runningInstance.transformShift, x);
         }
 
         return space;
     }
 
-    function genSubfeatureIndexes(IFeature feature, uint32 dimId, uint32 start, uint32[] memory samplesIndexes) private returns (uint32[] memory)
+    function genSubfeatureIndexes(IFeature feature, uint32 dimId, RunningInstance memory runningInstance, uint32[] memory samplesIndexes) private returns (uint32[] memory)
     {
         uint32[] memory subspace;
         uint32[] memory compositeIndexes = new uint32[](samplesIndexes.length);
@@ -56,7 +61,7 @@ contract Runner is IRunner
         emit Debug("genSubfeatureIndexes subspaceSize", Strings.toString(subspaceSize));
 
         // because we need to sample from this space element [max(samplesIndexes)]
-        subspace = generateSubfeatureSpace(feature, dimId, start, subspaceSize);
+        subspace = generateSubfeatureSpace(feature, dimId, runningInstance, subspaceSize);
 
         // sample composite subspace
         for(uint32 i = 0; i < compositeIndexes.length; ++i)
@@ -67,11 +72,10 @@ contract Runner is IRunner
         return compositeIndexes;
     }
 
-    function decompose(IFeature feature, uint32[] memory startPoints, uint32 startPointId, uint32[] memory indexes, uint32 dest, uint32[][] memory outBuffer) private
+    function decompose(IFeature feature, RunningInstance[] memory runningInstances, uint32 runningInstanceId, uint32[] memory indexes, uint32 dest, uint32[][] memory outBuffer) private
     {
         require(dest < outBuffer.length, "buffer to small");
         require(feature.checkCondition(), "feature condition not met"); // feature check condition
-
 
         if(feature.isScalar()){
             for(uint i = 0; i < outBuffer[dest].length; ++i){
@@ -82,7 +86,7 @@ contract Runner is IRunner
         }
 
         // from which starting point should we generate actual composite feature
-        uint32 start = 0;
+        RunningInstance memory runningInstance;
 
         uint32[] memory compositeIndexes;
         
@@ -93,22 +97,28 @@ contract Runner is IRunner
         {
             emit Debug("decompose", Strings.toString(dimId));
 
-            if(startPointId < startPoints.length)start = startPoints[startPointId];
+            if(runningInstanceId < runningInstances.length)
+            {
+                runningInstance = runningInstances[runningInstanceId];
+            }
+            emit Debug("runningInstance start", Strings.toString(runningInstance.startPoint));
+            emit Debug("runningInstance transform shift ", Strings.toString(runningInstance.transformShift));
 
             // generate given composite feature elements from given starting point
-            compositeIndexes = genSubfeatureIndexes(feature, dimId, start, indexes);
+            compositeIndexes = genSubfeatureIndexes(feature, dimId, runningInstance, indexes);
 
             IFeature subfeature = feature.getComposite(dimId);
             emit Debug("decompose subfeature", subfeature.getName());
 
             // recursivly fill out buffer range
-            decompose(subfeature, startPoints, startPointId, compositeIndexes, dest, outBuffer);
+            decompose(subfeature, runningInstances, runningInstanceId, compositeIndexes, dest, outBuffer);
 
             // shift buffer index
             dest += subfeature.getScalarsCount();
 
             //shift starting point
-            startPointId += subfeature.getSubTreeSize() + 1;
+            runningInstanceId += subfeature.getTreeSize() + 1;
+            emit Debug("runningInstanceId", Strings.toString(runningInstanceId));
         }
         
         emit Debug("decompose loop end", feature.getName());
@@ -117,13 +127,10 @@ contract Runner is IRunner
         //feature.updateCondition();
     }
 
-
-    function gen(string memory name, uint32 N) external returns (uint32[][] memory)
+    function gen(string memory name, uint32 N, RunningInstance[] memory runningInstances) external returns (uint32[][] memory)
     {
         emit Debug("gen called", Strings.toString(N));
 
-        // TODO as parameter
-        uint32[] memory startPoints;
         require(N > 0, "number of samples must be greater than 0");
         require(_registry.containsFeature(name), "cannot find feature");
 
@@ -132,6 +139,9 @@ contract Runner is IRunner
         uint32 numberOfScalars = feature.getScalarsCount();
         assert(numberOfScalars > 0);
         emit Debug("numberOfScalars", Strings.toString(numberOfScalars));
+
+        if(runningInstances.length != 0)require(runningInstances.length == feature.getTreeSize(), "wrong number of running instances");
+        emit Debug("getTreeSize", Strings.toString(feature.getTreeSize()));
 
         // allocate memory for scalar data
         uint32[][] memory samplesBuffer = new uint32[][](numberOfScalars);
@@ -149,7 +159,10 @@ contract Runner is IRunner
         // should it generate all of its composite features
         // it will give us the FIRST generated element of that particular generate call
         uint32 start = 0;
-        if(startPoints.length > 0)start = startPoints[0];
+        if(runningInstances.length > 0) 
+        {
+            start = runningInstances[0].startPoint;
+        }
 
         uint32[] memory indexes = new uint32[](N);
         for(uint32 i = 0; i < N; ++i)
@@ -157,7 +170,7 @@ contract Runner is IRunner
             indexes[i] = i + start;
         }
 
-        decompose(feature, startPoints, 1, indexes, 0, samplesBuffer);
+        decompose(feature, runningInstances, 1, indexes, 0, samplesBuffer);
         
         return (samplesBuffer);
     }

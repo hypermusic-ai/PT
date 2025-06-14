@@ -21,7 +21,7 @@ abstract contract FeatureBase is IFeature, OwnableBase
     IFeature[]              private _composites;
     string                  private _name;
     uint32                  private _scalars;
-    uint32                  private _subTreeSize;
+    uint32                  private _treeSize;
     ITransformation[][]     private _transformations;
     CallDef                 private _transformationsCallDef;
         
@@ -43,13 +43,13 @@ abstract contract FeatureBase is IFeature, OwnableBase
 
         // allocate transformations memory
         _transformationsCallDef = new CallDef(_composites.length);
+        _treeSize = 1;
 
         // calculate scalars
         if(_composites.length == 0)
         {
             // scalar type
             _scalars = 1;
-            _subTreeSize = 0;
         }
         else 
         {
@@ -57,12 +57,11 @@ abstract contract FeatureBase is IFeature, OwnableBase
 
             // composite type
             _scalars = 0;
-            _subTreeSize = (uint32)(_composites.length);
 
             for(uint32 i = 0; i < _composites.length; ++i)
             {
                 _scalars += _composites[i].getScalarsCount();
-                _subTreeSize += _composites[i].getSubTreeSize();
+                _treeSize += _composites[i].getTreeSize();
             }
         }
         assert(_scalars > 0);
@@ -116,9 +115,9 @@ abstract contract FeatureBase is IFeature, OwnableBase
     }
 
     //
-    function getSubTreeSize() external view returns (uint32)
+    function getTreeSize() external view returns (uint32)
     {
-        return _subTreeSize;
+        return _treeSize;
     }
 
     //
