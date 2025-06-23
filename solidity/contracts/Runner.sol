@@ -12,6 +12,12 @@ struct RunningInstance {
     uint32 transformShift;
 }
 
+struct Samples
+{
+    string feature_path;
+    uint32[] data;
+}
+
 interface IRunner
 {
     function gen(string memory name, uint32 N, RunningInstance[] memory runningInstances) external returns (uint32[][] memory);
@@ -92,33 +98,38 @@ contract Runner is IRunner
         
         emit Debug("decompose loop start", feature.getName());
 
+        require(runningInstances.length == 0 ||  runningInstances.length >= feature.getTreeSize(),
+            "wrong number of running instances");
+        
         // for every composite run decompose at designated buffer index
         for(uint32 dimId = 0; dimId < feature.getCompositesCount(); ++dimId)
         {
-            emit Debug("decompose", Strings.toString(dimId));
+            IFeature subfeature = feature.getComposite(dimId);
+            emit Debug("decompose subfeature", subfeature.getName());
+            emit Debug("runningInstanceId", Strings.toString(runningInstanceId));
 
             if(runningInstanceId < runningInstances.length)
             {
                 runningInstance = runningInstances[runningInstanceId];
             }
-            emit Debug("runningInstance start", Strings.toString(runningInstance.startPoint));
-            emit Debug("runningInstance transform shift ", Strings.toString(runningInstance.transformShift));
+            else
+            {
+                emit Debug("runningInstanceId to big!", Strings.toString(runningInstanceId));
+                runningInstance.startPoint = 0;
+                runningInstance.transformShift = 0;
+            }
 
             // generate given composite feature elements from given starting point
             compositeIndexes = genSubfeatureIndexes(feature, dimId, runningInstance, indexes);
 
-            IFeature subfeature = feature.getComposite(dimId);
-            emit Debug("decompose subfeature", subfeature.getName());
-
             // recursivly fill out buffer range
-            decompose(subfeature, runningInstances, runningInstanceId, compositeIndexes, dest, outBuffer);
+            // runningInstanceId + 1 because we we took current runningInstance for parent feature
+            decompose(subfeature, runningInstances, runningInstanceId + 1, compositeIndexes, dest, outBuffer);
 
             // shift buffer index
             dest += subfeature.getScalarsCount();
-
-            //shift starting point
-            runningInstanceId += subfeature.getTreeSize() + 1;
-            emit Debug("runningInstanceId", Strings.toString(runningInstanceId));
+            // 
+            runningInstanceId += subfeature.getTreeSize();
         }
         
         emit Debug("decompose loop end", feature.getName());
