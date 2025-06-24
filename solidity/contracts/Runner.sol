@@ -20,7 +20,7 @@ struct Samples
 
 interface IRunner
 {
-    function gen(string memory name, uint32 N, RunningInstance[] memory runningInstances) external returns (uint32[][] memory);
+    function gen(string memory name, uint32 N, RunningInstance[] memory runningInstances) external returns (Samples[] memory);
 }
 
 event Debug(string label, string value);
@@ -78,14 +78,18 @@ contract Runner is IRunner
         return compositeIndexes;
     }
 
-    function decompose(IFeature feature, RunningInstance[] memory runningInstances, uint32 runningInstanceId, uint32[] memory indexes, uint32 dest, uint32[][] memory outBuffer) private
+    function decompose(string memory path, IFeature feature, RunningInstance[] memory runningInstances, uint32 runningInstanceId, uint32[] memory indexes, uint32 dest, Samples[] memory outBuffer) private
     {
         require(dest < outBuffer.length, "buffer to small");
         require(feature.checkCondition(), "feature condition not met"); // feature check condition
 
-        if(feature.isScalar()){
-            for(uint i = 0; i < outBuffer[dest].length; ++i){
-                outBuffer[dest][i] = indexes[i];
+        string memory current_path = string(abi.encodePacked(path, "/", feature.getName()));
+
+        if(feature.isScalar())
+        {
+            outBuffer[dest].feature_path = current_path;
+            for(uint i = 0; i < outBuffer[dest].data.length; ++i){
+                outBuffer[dest].data[i] = indexes[i];
             }
             // feature condition update
             return;
@@ -124,7 +128,7 @@ contract Runner is IRunner
 
             // recursivly fill out buffer range
             // runningInstanceId + 1 because we we took current runningInstance for parent feature
-            decompose(subfeature, runningInstances, runningInstanceId + 1, compositeIndexes, dest, outBuffer);
+            decompose(current_path, subfeature, runningInstances, runningInstanceId + 1, compositeIndexes, dest, outBuffer);
 
             // shift buffer index
             dest += subfeature.getScalarsCount();
@@ -138,7 +142,7 @@ contract Runner is IRunner
         //feature.updateCondition();
     }
 
-    function gen(string memory name, uint32 N, RunningInstance[] memory runningInstances) external returns (uint32[][] memory)
+    function gen(string memory name, uint32 N, RunningInstance[] memory runningInstances) external returns (Samples[] memory)
     {
         emit Debug("gen called", Strings.toString(N));
 
@@ -155,10 +159,10 @@ contract Runner is IRunner
         emit Debug("getTreeSize", Strings.toString(feature.getTreeSize()));
 
         // allocate memory for scalar data
-        uint32[][] memory samplesBuffer = new uint32[][](numberOfScalars);
-        for(uint32 i=0; i < numberOfScalars; ++i)
+        Samples[] memory samplesBuffer = new Samples[](numberOfScalars);
+        for(uint32 i = 0; i < numberOfScalars; ++i)
         {
-            samplesBuffer[i] = new uint32[](N);
+            samplesBuffer[i].data = new uint32[](N);
         }
 
         // we will generate sequential list of N objects from actual feature
@@ -181,7 +185,7 @@ contract Runner is IRunner
             indexes[i] = i + start;
         }
 
-        decompose(feature, runningInstances, 1, indexes, 0, samplesBuffer);
+        decompose("", feature, runningInstances, 1, indexes, 0, samplesBuffer);
         
         return (samplesBuffer);
     }
