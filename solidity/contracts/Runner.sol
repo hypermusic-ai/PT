@@ -20,10 +20,8 @@ struct Samples
 
 interface IRunner
 {
-    function gen(string memory name, uint32 N, RunningInstance[] memory runningInstances) external returns (Samples[] memory);
+    function gen(string memory name, uint32 N, RunningInstance[] memory runningInstances) external view returns (Samples[] memory);
 }
-
-event Debug(string label, string value);
 
 contract Runner is IRunner
 {
@@ -34,10 +32,8 @@ contract Runner is IRunner
         _registry = IRegistry(registryAddr);
     }
 
-    function generateSubfeatureSpace(IFeature feature, uint32 dimId, RunningInstance memory runningInstance, uint32 N) private returns (uint32[] memory)
+    function generateSubfeatureSpace(IFeature feature, uint32 dimId, RunningInstance memory runningInstance, uint32 N) private view returns (uint32[] memory)
     {
-        emit Debug("generateSubfeatureSpace", "");
-
         require(dimId < feature.getCompositesCount(), "invalid dimension id");
 
         uint32[] memory space = new uint32[](N);
@@ -52,7 +48,7 @@ contract Runner is IRunner
         return space;
     }
 
-    function genSubfeatureIndexes(IFeature feature, uint32 dimId, RunningInstance memory runningInstance, uint32[] memory samplesIndexes) private returns (uint32[] memory)
+    function genSubfeatureIndexes(IFeature feature, uint32 dimId, RunningInstance memory runningInstance, uint32[] memory samplesIndexes) private view returns (uint32[] memory)
     {
         uint32[] memory subspace;
         uint32[] memory compositeIndexes = new uint32[](samplesIndexes.length);
@@ -64,7 +60,6 @@ contract Runner is IRunner
             if(samplesIndexes[i] > subspaceSize)subspaceSize = samplesIndexes[i];
         }
         subspaceSize += 1;
-        emit Debug("genSubfeatureIndexes subspaceSize", Strings.toString(subspaceSize));
 
         // because we need to sample from this space element [max(samplesIndexes)]
         subspace = generateSubfeatureSpace(feature, dimId, runningInstance, subspaceSize);
@@ -78,7 +73,7 @@ contract Runner is IRunner
         return compositeIndexes;
     }
 
-    function decompose(string memory path, IFeature feature, RunningInstance[] memory runningInstances, uint32 runningInstanceId, uint32[] memory indexes, uint32 dest, Samples[] memory outBuffer) private
+    function decompose(string memory path, IFeature feature, RunningInstance[] memory runningInstances, uint32 runningInstanceId, uint32[] memory indexes, uint32 dest, Samples[] memory outBuffer) view private
     {
         require(dest < outBuffer.length, "buffer to small");
         require(feature.checkCondition(), "feature condition not met"); // feature check condition
@@ -100,8 +95,6 @@ contract Runner is IRunner
 
         uint32[] memory compositeIndexes;
         
-        emit Debug("decompose loop start", feature.getName());
-
         require(runningInstances.length == 0 ||  runningInstances.length >= feature.getTreeSize(),
             "wrong number of running instances");
         
@@ -109,8 +102,6 @@ contract Runner is IRunner
         for(uint32 dimId = 0; dimId < feature.getCompositesCount(); ++dimId)
         {
             IFeature subfeature = feature.getComposite(dimId);
-            emit Debug("decompose subfeature", subfeature.getName());
-            emit Debug("runningInstanceId", Strings.toString(runningInstanceId));
 
             if(runningInstanceId < runningInstances.length)
             {
@@ -118,7 +109,6 @@ contract Runner is IRunner
             }
             else
             {
-                emit Debug("runningInstanceId to big!", Strings.toString(runningInstanceId));
                 runningInstance.startPoint = 0;
                 runningInstance.transformShift = 0;
             }
@@ -136,16 +126,12 @@ contract Runner is IRunner
             runningInstanceId += subfeature.getTreeSize();
         }
         
-        emit Debug("decompose loop end", feature.getName());
-
         // feature condition update
         //feature.updateCondition();
     }
 
-    function gen(string memory name, uint32 N, RunningInstance[] memory runningInstances) external returns (Samples[] memory)
+    function gen(string memory name, uint32 N, RunningInstance[] memory runningInstances) external view returns (Samples[] memory)
     {
-        emit Debug("gen called", Strings.toString(N));
-
         require(N > 0, "number of samples must be greater than 0");
         require(_registry.containsFeature(name), "cannot find feature");
 
@@ -153,10 +139,8 @@ contract Runner is IRunner
 
         uint32 numberOfScalars = feature.getScalarsCount();
         assert(numberOfScalars > 0);
-        emit Debug("numberOfScalars", Strings.toString(numberOfScalars));
 
         if(runningInstances.length != 0)require(runningInstances.length == feature.getTreeSize(), "wrong number of running instances");
-        emit Debug("getTreeSize", Strings.toString(feature.getTreeSize()));
 
         // allocate memory for scalar data
         Samples[] memory samplesBuffer = new Samples[](numberOfScalars);
