@@ -88,7 +88,12 @@ abstract contract FeatureBase is IFeature, OwnableBase
                 require(_registry.containsTransformation(_transformationsCallDef.names(dimId, opId)), 
                     string.concat("cannot find transformation : ", _transformationsCallDef.names(dimId, opId)));
 
-                _transformations[dimId].push(_registry.getTransformation(_transformationsCallDef.names(dimId, opId)));
+                ITransformation transformation = _registry.getTransformation(_transformationsCallDef.names(dimId, opId));
+
+                require(_transformationsCallDef.getArgsCount(dimId, opId) == transformation.getArgsCount(),
+                    string.concat("transformation ", _transformationsCallDef.names(dimId, opId), " has wrong number of arguments"));
+
+                _transformations[dimId].push(transformation);
             }
         }
 
