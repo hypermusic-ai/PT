@@ -68,9 +68,6 @@ abstract contract FeatureBase is IFeature, OwnableBase
 
         // set name
         _name = name;
-
-        // register
-        _registry.registerFeature(_name, this);
     }
 
     function getCallDef() internal view returns (CallDef)
@@ -78,7 +75,7 @@ abstract contract FeatureBase is IFeature, OwnableBase
         return _transformationsCallDef;
     }
 
-    function initTransformations() internal
+    function init() internal
     {
         require(_transformationsCallDef.getDimensionsCount() == _transformations.length);
 
@@ -94,6 +91,9 @@ abstract contract FeatureBase is IFeature, OwnableBase
                 _transformations[dimId].push(_registry.getTransformation(_transformationsCallDef.names(dimId, opId)));
             }
         }
+
+        // register
+        _registry.registerFeature(_name, this);
     }
 
     //
