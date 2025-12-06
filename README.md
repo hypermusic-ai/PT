@@ -11,4 +11,4 @@ Repo division is based on smart-contract language.
 
 ## Docs
 
-Documentation is available at https://pt-docs.netlify.app/
+Read more at: https://decentralised.art
