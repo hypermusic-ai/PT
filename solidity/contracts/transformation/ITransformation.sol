@@ -29,20 +29,19 @@ contract CallDef
 
     function getDimensionsCount() external view returns(uint32)
     {
-        assert(names.length == args.length);
         return uint32(names.length);
     }
 
     function getTransformationsCount(uint32 dimId) external view returns(uint32)
     {
-        require(dimId < this.getDimensionsCount());
+        require(dimId < names.length, "invalid dimension id");
         return uint32(names[dimId].length);
     }
 
     function getArgsCount(uint32 dimId, uint32 opId) external view returns(uint32)
     {
-        require(dimId < this.getDimensionsCount());
-        require(opId < this.getTransformationsCount(dimId));
+        require(dimId < names.length, "invalid dimension id");
+        require(opId < names[dimId].length, "invalid operation id");
         return uint32(args[dimId][opId].length);
     }
 
@@ -52,8 +51,8 @@ contract CallDef
     /// index opId and dimension dimId.
     function getArgs(uint32 dimId, uint32 opId) external view returns(uint32[] memory)
     {
-        require(dimId < this.getDimensionsCount());
-        require(opId < this.getTransformationsCount(dimId));
+        require(dimId < names.length, "invalid dimension id");
+        require(opId < names[dimId].length, "invalid operation id");
         return args[dimId][opId];
     }
 
@@ -64,7 +63,7 @@ contract CallDef
     /// @param argsArr Array containing arguments for this operator.
     function push(uint32 dimId, string calldata opName, uint32[] memory argsArr) external
     {
-        require(dimId < names.length);
+        require(dimId < names.length, "invalid dimension id");
         names[dimId].push(opName);
         args[dimId].push(argsArr);
     }
@@ -75,7 +74,7 @@ contract CallDef
     /// @param opName Name for the newly pushed operator.
     function push(uint32 dimId, string calldata opName) external
     {
-        require(dimId < names.length);
+        require(dimId < names.length, "invalid dimension id");
         names[dimId].push(opName);
         args[dimId].push();
     }
@@ -87,7 +86,7 @@ contract CallDef
     /// @param argsArr Array containing arguments for this operator.
     function push(uint32 dimId, string calldata opName, uint32[1] calldata argsArr) external
     {
-        require(dimId < names.length && dimId < args.length);
+        require(dimId < names.length && dimId < args.length, "invalid dimension id");
 
         names[dimId].push(opName);
         args[dimId].push(argsArr);
@@ -100,7 +99,7 @@ contract CallDef
     /// @param argsArr Array containing arguments for this operator.
     function push(uint32 dimId, string calldata opName, uint32[2] calldata argsArr) external
     {
-        require(dimId < names.length && dimId < args.length);
+        require(dimId < names.length && dimId < args.length, "invalid dimension id");
 
         names[dimId].push(opName);
         args[dimId].push(argsArr);
@@ -113,7 +112,7 @@ contract CallDef
     /// @param argsArr Array containing arguments for this operator.
     function push(uint32 dimId, string calldata opName, uint32[3] calldata argsArr) external
     {
-        require(dimId < names.length && dimId < args.length);
+        require(dimId < names.length && dimId < args.length, "invalid dimension id");
 
         names[dimId].push(opName);
         args[dimId].push(argsArr);
@@ -126,7 +125,7 @@ contract CallDef
     /// @param argsArr Array containing arguments for this operator.
     function push(uint32 dimId, string calldata opName, uint32[4] calldata argsArr) external
     {
-        require(dimId < names.length && dimId < args.length);
+        require(dimId < names.length && dimId < args.length, "invalid dimension id");
 
         names[dimId].push(opName);
         args[dimId].push(argsArr);
@@ -139,7 +138,7 @@ contract CallDef
     /// @param argsArr Array containing arguments for this operator.
     function push(uint32 dimId, string calldata opName, uint32[5] calldata argsArr) external
     {
-        require(dimId < names.length && dimId < args.length);
+        require(dimId < names.length && dimId < args.length, "invalid dimension id");
 
         names[dimId].push(opName);
         args[dimId].push(argsArr);

@@ -11,8 +11,8 @@ import "../condition/ICondition.sol";
 import "../transformation/ITransformation.sol";
 
 import "../ownable/OwnableBase.sol";
+import "../error/Error.sol";
 
-event Debug(string label, string value);
 
 abstract contract FeatureBase is IFeature, OwnableBase
 {
@@ -32,12 +32,14 @@ abstract contract FeatureBase is IFeature, OwnableBase
         _registry = IRegistry(registryAddr);
         _condition = condition;
         
-        emit Debug("FeatureBase compsNames.length", Strings.toString(compsNames.length));
-
-        // find subfeatures
+        // find sub features
         for(uint32 i = 0; i < compsNames.length; ++i)
         {
-            require(_registry.containsFeature(compsNames[i]), string.concat("cannot find composite feature: ", compsNames[i]));
+            if(_registry.containsFeature(compsNames[i]) == false)
+            {
+                revert FeatureMissing(keccak256(bytes(compsNames[i])));
+            }
+
             _composites.push(_registry.getFeature(compsNames[i]));
         }
 
@@ -85,13 +87,17 @@ abstract contract FeatureBase is IFeature, OwnableBase
 
             for(uint8 opId = 0; opId < opCount; ++opId)
             {
-                require(_registry.containsTransformation(_transformationsCallDef.names(dimId, opId)), 
-                    string.concat("cannot find transformation : ", _transformationsCallDef.names(dimId, opId)));
+                if(_registry.containsTransformation(_transformationsCallDef.names(dimId, opId)) == false)
+                {
+                    revert TransformationMissing(keccak256(bytes(_transformationsCallDef.names(dimId, opId))));
+                }
 
                 ITransformation transformation = _registry.getTransformation(_transformationsCallDef.names(dimId, opId));
 
-                require(_transformationsCallDef.getArgsCount(dimId, opId) == transformation.getArgsCount(),
-                    string.concat("transformation ", _transformationsCallDef.names(dimId, opId), " has wrong number of arguments"));
+                if(_transformationsCallDef.getArgsCount(dimId, opId) != transformation.getArgsCount())
+                {
+                    revert TransformationArgumentsMismatch(keccak256(bytes(_transformationsCallDef.names(dimId, opId))));
+                }
 
                 _transformations[dimId].push(transformation);
             }
@@ -146,7 +152,7 @@ abstract contract FeatureBase is IFeature, OwnableBase
         if(_transformations[dimId].length == 0)return x;
         
         opId %= (uint32)(_transformations[dimId].length);
-        uint32 out = _transformations[dimId][opId].run(x, getCallDef().getArgs(dimId, opId));
+        uint32 out = _transformations[dimId][opId].run(x, _transformationsCallDef.getArgs(dimId, opId));
         return out;
     }
 

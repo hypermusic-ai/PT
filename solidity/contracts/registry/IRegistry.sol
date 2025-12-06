@@ -5,19 +5,6 @@ pragma solidity >=0.7.0 <0.9.0;
 import "../feature/IFeature.sol";
 import "../transformation/ITransformation.sol";
 
-error FeatureAlreadyRegistered(bytes32 name);
-error FeatureMissingComposites(bytes32 name);
-error FeatureMissing(bytes32 name);
-
-error TransformationAlreadyRegistered(bytes32 name);
-error TransformationArgumentsMismatch(bytes32 name);
-error TransformationMissing(bytes32 name);
-
-error RunInstanceAlreadyRegistered(bytes32 featureName, bytes32 runInstanceName);
-error RunInstanceMissing(bytes32 featureName, bytes32 runInstanceName);
-
-error RegistryError(uint32 code);
-
 interface IRunInstance
 {
     function getStartPoint() external view returns (uint32);
