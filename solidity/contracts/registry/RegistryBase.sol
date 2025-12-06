@@ -17,18 +17,26 @@ contract RegistryBase is IRegistry
     // This function is executed on a call to the contract if none of the other
     // functions match the given function signature, or if no data is supplied at all
     fallback() external {
-        emit Fallback(msg.sender, "Fallback was called");
+        revert RegistryError(1);
     }
 
     function registerFeature(string calldata name, IFeature feature) external {
-        require(!this.containsFeature(name), string.concat(name, " feature of this name already registered"));
+        if(_features[name] != address(0))
+        {
+            revert FeatureAlreadyRegistered(keccak256(bytes(name)));
+        }
+        
         _features[name] = address(feature);
         _featuresCount++;
         emit FeatureAdded(msg.sender, name, _features[name]);
     }
 
     function registerTransformation(string calldata name, ITransformation transformation) external {
-        require(!this.containsTransformation(name), string.concat(name, " transformation of this name already registered"));
+        if(_transformations[name] != address(0))
+        {
+            revert TransformationAlreadyRegistered(keccak256(bytes(name)));
+        }
+        
         _transformations[name] = address(transformation);
         _transformationsCount++;
         emit TransformationAdded(msg.sender, name, _transformations[name]);
@@ -36,7 +44,11 @@ contract RegistryBase is IRegistry
 
     function registerRunInstance(string calldata featureName, string calldata runInstanceName, IRunInstance runInstance) external
     {
-        require(!this.containsRunInstance(featureName, runInstanceName), string.concat(featureName, ":", runInstanceName, " RunInstance already registered"));
+        if(_runInstances[featureName][runInstanceName] != address(0))
+        {
+            revert RunInstanceAlreadyRegistered(keccak256(bytes(featureName)), keccak256(bytes(runInstanceName)));
+        }
+        
         _runInstances[featureName][runInstanceName] = address(runInstance);
         _runInstancesCount[featureName]++;
         emit RunInstanceAdded(msg.sender, featureName, runInstanceName, _runInstances[featureName][runInstanceName]);
@@ -44,38 +56,57 @@ contract RegistryBase is IRegistry
 
     function getFeature(string calldata name) external view returns (IFeature)
     {
-        assert(_features[name] != address(0));
+        if(_features[name] == address(0))
+        {
+            revert FeatureMissing(keccak256(bytes(name)));
+        }
         return IFeature(_features[name]);
     }
 
     function getTransformation(string calldata name) external view returns (ITransformation)
     {
-        assert(_transformations[name] != address(0));
+        if(_transformations[name] == address(0))
+        {
+            revert TransformationMissing(keccak256(bytes(name)));
+        }
         return ITransformation(_transformations[name]);
     }
 
     function getRunInstance(string calldata featureName, string calldata runInstanceName) external view returns (IRunInstance)
     {
-        assert(_runInstances[featureName][runInstanceName] != address(0));
+        if(_runInstances[featureName][runInstanceName] == address(0))
+        {
+            revert RunInstanceMissing(keccak256(bytes(featureName)), keccak256(bytes(runInstanceName)));
+        }
         return IRunInstance(_runInstances[featureName][runInstanceName]);
     }
 
     function clearFeature(string calldata name) external {
-        require(this.containsFeature(name), "feature does not exist");
+        if(_features[name] == address(0))
+        {
+            revert FeatureMissing(keccak256(bytes(name)));
+        }
         _features[name] = address(0);
         _featuresCount--;
         emit FeatureRemoved(msg.sender, name);
     }
 
     function clearTransformation(string calldata name) external {
-        require(this.containsTransformation(name), "transformation does not exist");
+        if(_transformations[name] == address(0))
+        {
+            revert TransformationMissing(keccak256(bytes(name)));
+        }
         _transformations[name] = address(0);
         _transformationsCount--;
         emit TransformationRemoved(msg.sender, name);
     }
 
     function clearRunInstance(string calldata featureName, string calldata runInstanceName) external {
-        require(this.containsRunInstance(featureName, runInstanceName), "Run Instance does not exist");
+        if(_runInstances[featureName][runInstanceName] == address(0))
+        {
+            revert RunInstanceMissing(keccak256(bytes(featureName)), keccak256(bytes(runInstanceName)));
+        }
+
         _runInstances[featureName][runInstanceName] = address(0);
         _runInstancesCount[featureName]--;
         emit RunInstanceRemoved(msg.sender, featureName, runInstanceName);
