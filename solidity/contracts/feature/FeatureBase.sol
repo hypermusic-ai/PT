@@ -1,14 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0
-
 pragma solidity >=0.8.2 <0.9.0;
-
-import "@openzeppelin/contracts/utils/Strings.sol";
-
 import "./IFeature.sol";
 
 import "../registry/IRegistry.sol";
-import "../condition/ICondition.sol";
 import "../transformation/ITransformation.sol";
+import "../condition/ICondition.sol";
 
 import "../ownable/OwnableBase.sol";
 import "../error/Error.sol";
@@ -17,20 +13,20 @@ import "../error/Error.sol";
 abstract contract FeatureBase is IFeature, OwnableBase
 {
     IRegistry               private _registry;
-    ICondition              private _condition;
     IFeature[]              private _composites;
     string                  private _name;
     uint32                  private _scalars;
     uint32                  private _treeSize;
     ITransformation[][]     private _transformations;
     CallDef                 private _transformationsCallDef;
+    ICondition              private _condition;
+    int32[]                 private _conditionCheckArgs;
         
     //
-    constructor(address registryAddr, ICondition condition, string memory name, string[] storage compsNames)
+    constructor(address registryAddr, string memory name, string[] memory compsNames, string memory conditionName, int32[] memory conditionCheckArgs)
     {
         assert(registryAddr != address(0));
         _registry = IRegistry(registryAddr);
-        _condition = condition;
         
         // find sub features
         for(uint32 i = 0; i < compsNames.length; ++i)
@@ -67,6 +63,25 @@ abstract contract FeatureBase is IFeature, OwnableBase
             }
         }
         assert(_scalars > 0);
+
+        // require condition
+        if(bytes(conditionName).length != 0)
+        {
+            if(_registry.containsCondition(conditionName) == false)
+            {
+                revert ConditionMissing(keccak256(bytes(conditionName)));
+            }
+
+            // set condition
+            _condition = _registry.getCondition(conditionName);
+
+            if(conditionCheckArgs.length != _condition.getArgsCount())
+            {
+                revert ConditionArgumentsMismatch(keccak256(bytes(conditionName)));
+            }
+            // set args
+            _conditionCheckArgs = conditionCheckArgs;
+        }
 
         // set name
         _name = name;
@@ -108,7 +123,7 @@ abstract contract FeatureBase is IFeature, OwnableBase
     }
 
     //
-    function getName() external  view returns(string memory)
+    function getName() external view returns(string memory)
     {
         return _name;
     }
@@ -158,11 +173,9 @@ abstract contract FeatureBase is IFeature, OwnableBase
 
     function checkCondition() external view override returns(bool)
     {
-        return _condition.check();
-    }
+        // no condition
+        if(address(_condition) == address(0)) return true;
 
-    function updateCondition() external override
-    {
-        return _condition.update();
+        return _condition.check(_conditionCheckArgs);
     }
 } 

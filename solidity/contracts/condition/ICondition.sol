@@ -6,6 +6,11 @@ import "../ownable/IOwnable.sol";
 
 interface ICondition is IOwnable
 {
-    function update() external;
-    function check() external view returns(bool);
+    /// @notice Get number of arguments for condition
+    function getArgsCount() external view returns(uint32);
+
+    /// @notice Checks condition.
+    ///
+    /// @param args Array containing arguments for this condition.
+    function check(int32[] calldata args) external view returns (bool);
 }

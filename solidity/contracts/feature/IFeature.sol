@@ -13,9 +13,5 @@ interface IFeature is IOwnable
     function getCompositesCount() external view returns (uint32);
     function getComposite(uint32 id) external view returns (IFeature);
     function transform(uint32 dimId, uint32 opId, uint32 x) external view returns (uint32);
-
     function checkCondition() external view returns(bool);
-    
-    // modifies state
-    function updateCondition() external;
 }

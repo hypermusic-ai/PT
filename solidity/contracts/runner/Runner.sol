@@ -1,11 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0
+pragma solidity >=0.8.2 <0.9.0;
 
-pragma solidity >=0.7.0 <0.9.0;
+import "../feature/IFeature.sol";
+import "../registry/IRegistry.sol";
+import "../error/Error.sol";
 
-import "@openzeppelin/contracts/utils/Strings.sol";
-
-import "./feature/IFeature.sol";
-import "./registry/IRegistry.sol";
 
 struct RunningInstance {
     uint32 startPoint;
@@ -76,7 +75,11 @@ contract Runner is IRunner
     function decompose(string memory path, IFeature feature, RunningInstance[] memory runningInstances, uint32 runningInstanceId, uint32[] memory indexes, uint32 dest, Samples[] memory outBuffer) view private
     {
         require(dest < outBuffer.length, "buffer to small");
-        require(feature.checkCondition(), "feature condition not met"); // feature check condition
+
+        if(feature.checkCondition() == false)
+        {
+            revert ConditionNotMet(keccak256(bytes(feature.getName())));
+        }
 
         string memory current_path = string(abi.encodePacked(path, "/", feature.getName()));
 
@@ -125,9 +128,6 @@ contract Runner is IRunner
             // 
             runningInstanceId += subfeature.getTreeSize();
         }
-        
-        // feature condition update
-        //feature.updateCondition();
     }
 
     function gen(string memory name, uint32 N, RunningInstance[] memory runningInstances) external view returns (Samples[] memory)
@@ -150,10 +150,10 @@ contract Runner is IRunner
         }
 
         // we will generate sequential list of N objects from actual feature
-        // generate 0th element from conept
-        // generate 1st el from cn
+        // generate 0th element from feature
+        // generate 1st el from feature
         //...
-        // gen (N-1)th el from cn
+        // gen (N-1)th el from feature
         // to generate 0th element from feature we need to specify from which starting points 
         // should it generate all of its composite features
         // it will give us the FIRST generated element of that particular generate call

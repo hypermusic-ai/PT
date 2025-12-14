@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0
-
-pragma solidity >=0.7.0 <0.9.0;
+pragma solidity >=0.8.2 <0.9.0;
 
 import "./IRegistry.sol";
 import "../error/Error.sol";
@@ -9,11 +8,11 @@ contract RegistryBase is IRegistry
 {
     mapping(string => address) private _features;
     mapping(string => address) private _transformations;
-    mapping(string => mapping(string => address)) private _runInstances;
+    mapping(string => address) private _conditions;
 
     uint256 private _featuresCount;
     uint256 private _transformationsCount;
-    mapping(string => uint256) private _runInstancesCount;
+    uint256 private _conditionsCount;
 
     // This function is executed on a call to the contract if none of the other
     // functions match the given function signature, or if no data is supplied at all
@@ -43,16 +42,15 @@ contract RegistryBase is IRegistry
         emit TransformationAdded(msg.sender, name, _transformations[name]);
     }
 
-    function registerRunInstance(string calldata featureName, string calldata runInstanceName, IRunInstance runInstance) external
-    {
-        if(_runInstances[featureName][runInstanceName] != address(0))
+    function registerCondition(string calldata name, ICondition condition) external {
+        if(_conditions[name] != address(0))
         {
-            revert RunInstanceAlreadyRegistered(keccak256(bytes(featureName)), keccak256(bytes(runInstanceName)));
+            revert ConditionAlreadyRegistered(keccak256(bytes(name)));
         }
         
-        _runInstances[featureName][runInstanceName] = address(runInstance);
-        _runInstancesCount[featureName]++;
-        emit RunInstanceAdded(msg.sender, featureName, runInstanceName, _runInstances[featureName][runInstanceName]);
+        _conditions[name] = address(condition);
+        _conditionsCount++;
+        emit ConditionAdded(msg.sender, name, _conditions[name]);
     }
 
     function getFeature(string calldata name) external view returns (IFeature)
@@ -73,13 +71,13 @@ contract RegistryBase is IRegistry
         return ITransformation(_transformations[name]);
     }
 
-    function getRunInstance(string calldata featureName, string calldata runInstanceName) external view returns (IRunInstance)
+    function getCondition(string calldata name) external view returns (ICondition)
     {
-        if(_runInstances[featureName][runInstanceName] == address(0))
+        if(_conditions[name] == address(0))
         {
-            revert RunInstanceMissing(keccak256(bytes(featureName)), keccak256(bytes(runInstanceName)));
+            revert ConditionMissing(keccak256(bytes(name)));
         }
-        return IRunInstance(_runInstances[featureName][runInstanceName]);
+        return ICondition(_conditions[name]);
     }
 
     function clearFeature(string calldata name) external {
@@ -102,15 +100,14 @@ contract RegistryBase is IRegistry
         emit TransformationRemoved(msg.sender, name);
     }
 
-    function clearRunInstance(string calldata featureName, string calldata runInstanceName) external {
-        if(_runInstances[featureName][runInstanceName] == address(0))
+    function clearCondition(string calldata name) external {
+        if(_conditions[name] == address(0))
         {
-            revert RunInstanceMissing(keccak256(bytes(featureName)), keccak256(bytes(runInstanceName)));
+            revert ConditionMissing(keccak256(bytes(name)));
         }
-
-        _runInstances[featureName][runInstanceName] = address(0);
-        _runInstancesCount[featureName]--;
-        emit RunInstanceRemoved(msg.sender, featureName, runInstanceName);
+        _conditions[name] = address(0);
+        _conditionsCount--;
+        emit ConditionRemoved(msg.sender, name);
     }
 
     function containsFeature(string calldata name) external view returns (bool)
@@ -123,9 +120,9 @@ contract RegistryBase is IRegistry
         return _transformations[name] != address(0);
     }
 
-    function containsRunInstance(string calldata featureName, string calldata runInstanceName) external view returns (bool)
+    function containsCondition(string calldata name) external view returns (bool)
     {
-        return _runInstances[featureName][runInstanceName] != address(0);
+        return _conditions[name] != address(0);
     }
 
     function featuresCount() external view returns (uint) {
@@ -136,7 +133,7 @@ contract RegistryBase is IRegistry
         return _transformationsCount;
     }
 
-    function runInstancesCount(string calldata featureName) external view returns (uint) {
-        return _runInstancesCount[featureName];
+    function conditionsCount() external view returns (uint) {
+        return _conditionsCount;
     }
 }
