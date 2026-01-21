@@ -12,6 +12,10 @@ error ConditionAlreadyRegistered(bytes32 name);
 error ConditionArgumentsMismatch(bytes32 name);
 error ConditionMissing(bytes32 name);
 
+error ParticleAlreadyRegistered(bytes32 name);
+error ParticleMissing(bytes32 name);
+error ParticleDimensionsMismatch(bytes32 name);
+
 error RegistryError(uint32 code);
 
 error ConditionNotMet(bytes32 name);
