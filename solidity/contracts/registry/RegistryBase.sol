@@ -9,10 +9,12 @@ contract RegistryBase is IRegistry
     mapping(string => address) private _features;
     mapping(string => address) private _transformations;
     mapping(string => address) private _conditions;
+    mapping(string => address) private _particles;
 
     uint256 private _featuresCount;
     uint256 private _transformationsCount;
     uint256 private _conditionsCount;
+    uint256 private _particlesCount;
 
     // This function is executed on a call to the contract if none of the other
     // functions match the given function signature, or if no data is supplied at all
@@ -53,6 +55,17 @@ contract RegistryBase is IRegistry
         emit ConditionAdded(msg.sender, name, _conditions[name]);
     }
 
+    function registerParticle(string calldata name, IParticle particle) external {
+        if(_particles[name] != address(0))
+        {
+            revert ParticleAlreadyRegistered(keccak256(bytes(name)));
+        }
+        
+        _particles[name] = address(particle);
+        _particlesCount++;
+        emit ParticleAdded(msg.sender, name, _particles[name]);
+    }
+
     function getFeature(string calldata name) external view returns (IFeature)
     {
         if(_features[name] == address(0))
@@ -80,12 +93,22 @@ contract RegistryBase is IRegistry
         return ICondition(_conditions[name]);
     }
 
+    function getParticle(string calldata name) external view returns (IParticle)
+    {
+        if(_particles[name] == address(0))
+        {
+            revert ParticleMissing(keccak256(bytes(name)));
+        }
+        return IParticle(_particles[name]);
+    }
+
     function clearFeature(string calldata name) external {
         if(_features[name] == address(0))
         {
             revert FeatureMissing(keccak256(bytes(name)));
         }
         _features[name] = address(0);
+        assert(_featuresCount > 0);
         _featuresCount--;
         emit FeatureRemoved(msg.sender, name);
     }
@@ -96,6 +119,7 @@ contract RegistryBase is IRegistry
             revert TransformationMissing(keccak256(bytes(name)));
         }
         _transformations[name] = address(0);
+        assert(_transformationsCount > 0);
         _transformationsCount--;
         emit TransformationRemoved(msg.sender, name);
     }
@@ -106,8 +130,20 @@ contract RegistryBase is IRegistry
             revert ConditionMissing(keccak256(bytes(name)));
         }
         _conditions[name] = address(0);
+        assert(_conditionsCount > 0);
         _conditionsCount--;
         emit ConditionRemoved(msg.sender, name);
+    }
+
+    function clearParticle(string calldata name) external {
+        if(_particles[name] == address(0))
+        {
+            revert ParticleMissing(keccak256(bytes(name)));
+        }
+        _particles[name] = address(0);
+        assert(_particlesCount > 0);
+        _particlesCount--;
+        emit ParticleRemoved(msg.sender, name);
     }
 
     function containsFeature(string calldata name) external view returns (bool)
@@ -125,6 +161,11 @@ contract RegistryBase is IRegistry
         return _conditions[name] != address(0);
     }
 
+    function containsParticle(string calldata name) external view returns (bool)
+    {
+        return _particles[name] != address(0);
+    }
+
     function featuresCount() external view returns (uint) {
         return _featuresCount;
     }
@@ -135,5 +176,9 @@ contract RegistryBase is IRegistry
 
     function conditionsCount() external view returns (uint) {
         return _conditionsCount;
+    }
+
+    function particlesCount() external view returns (uint) {
+        return _particlesCount;
     }
 }
