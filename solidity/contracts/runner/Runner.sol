@@ -4,6 +4,7 @@ pragma solidity >=0.8.2 <0.9.0;
 import "../particle/IParticle.sol";
 import "../registry/IRegistry.sol";
 import "../error/Error.sol";
+import "../ownable/OwnableBase.sol";
 
 import "@openzeppelin/contracts/utils/Strings.sol";
 
@@ -24,12 +25,12 @@ interface IRunner
     function gen(string memory name, uint32 samplesCount, RunningInstance[] memory runningInstances) external view returns (Samples[] memory);
 }
 
-contract Runner is IRunner
+contract Runner is IRunner, OwnableBase
 {
     IRegistry private _registry;
 
-    constructor(address registryAddr) 
-    {
+    function initialize(address registryAddr) external initializer {
+        __OwnableBase_init(msg.sender);
         _registry = IRegistry(registryAddr);
     }
 

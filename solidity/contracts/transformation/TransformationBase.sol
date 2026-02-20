@@ -11,11 +11,11 @@ abstract contract TransformationBase is ITransformation, OwnableBase
     string      private _name;
     uint32      private _argc;
 
-    constructor(address registryAddr, string memory name, uint32 argc)
-    {
+    function __TransformationBase_init(address registryAddr, string memory name, uint32 argc) internal onlyInitializing {
         require(registryAddr != address(0));
+        __OwnableBase_init(msg.sender);
+
         _registry = IRegistry(registryAddr);
-        
         _name = name;
         _argc = argc;
 

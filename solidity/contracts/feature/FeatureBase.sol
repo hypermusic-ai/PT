@@ -16,11 +16,10 @@ abstract contract FeatureBase is IFeature, OwnableBase
     ITransformation[][]     private _transformations;
     CallDef                 private _transformationsCallDef;
 
-    //
-    constructor(address registryAddr, string memory name, uint32 dimensionsCount)
-    {
+    function __FeatureBase_init(address registryAddr, string memory name, uint32 dimensionsCount) internal onlyInitializing {
         assert(registryAddr != address(0));
         assert(dimensionsCount > 0);
+        __OwnableBase_init(msg.sender);
 
         _registry = IRegistry(registryAddr);
 
@@ -41,7 +40,7 @@ abstract contract FeatureBase is IFeature, OwnableBase
         return _transformationsCallDef;
     }
 
-    function init() internal
+    function __FeatureBase_finalizeInit() internal onlyInitializing
     {
         require(_transformationsCallDef.getDimensionsCount() == _transformations.length);
 
@@ -69,6 +68,11 @@ abstract contract FeatureBase is IFeature, OwnableBase
 
         // register
         _registry.registerFeature(_name, this);
+    }
+
+    function init() internal onlyInitializing
+    {
+        __FeatureBase_finalizeInit();
     }
 
     //

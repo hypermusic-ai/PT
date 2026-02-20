@@ -25,11 +25,12 @@ abstract contract ParticleBase is IParticle, OwnableBase
     int32[]                 private _conditionCheckArgs;
         
     //
-    constructor(address registryAddr, string memory name,
+    function __ParticleBase_init(address registryAddr, string memory name,
         string memory featureName, string[] memory compsNames,
-        string memory conditionName, int32[] memory conditionCheckArgs)
-    {
+        string memory conditionName, int32[] memory conditionCheckArgs) internal onlyInitializing {
         assert(registryAddr != address(0));
+        __OwnableBase_init(msg.sender);
+
         _registry = IRegistry(registryAddr);
         
         // find assigned feature

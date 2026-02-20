@@ -3,8 +3,9 @@ pragma solidity >=0.8.2 <0.9.0;
 
 import "./IRegistry.sol";
 import "../error/Error.sol";
+import "../ownable/OwnableBase.sol";
 
-contract RegistryBase is IRegistry
+contract RegistryBase is IRegistry, OwnableBase
 {
     mapping(string => address) private _features;
     mapping(string => address) private _transformations;
@@ -15,6 +16,10 @@ contract RegistryBase is IRegistry
     uint256 private _transformationsCount;
     uint256 private _conditionsCount;
     uint256 private _particlesCount;
+
+    function initialize() external initializer {
+        __OwnableBase_init(msg.sender);
+    }
 
     // This function is executed on a call to the contract if none of the other
     // functions match the given function signature, or if no data is supplied at all
