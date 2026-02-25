@@ -17,7 +17,7 @@ abstract contract ParticleBase is IParticle, OwnableBase
     string                  private _name;
 
     IFeature                private _feature;
-    address[]               private _composites;
+    IParticle[]             private _composites;
 
     uint32                  private _scalars;
 
@@ -48,7 +48,7 @@ abstract contract ParticleBase is IParticle, OwnableBase
         }
 
         // allocate memory for composites
-        _composites = new address[](_feature.getDimensionsCount());
+        _composites = new IParticle[](_feature.getDimensionsCount());
 
         _scalars = 0;
 
@@ -58,7 +58,7 @@ abstract contract ParticleBase is IParticle, OwnableBase
             if (bytes(compsNames[i]).length == 0)
             {
                 // this will be the scalar path
-                _composites[i] = address(0);
+                _composites[i] = IParticle(address(0));
                 _scalars += 1;
             }
             else 
@@ -73,7 +73,7 @@ abstract contract ParticleBase is IParticle, OwnableBase
 
                 _scalars += composite.getScalarsCount();
 
-                _composites[i] = address(composite);
+                _composites[i] = composite;
             }
         }
 
@@ -99,8 +99,20 @@ abstract contract ParticleBase is IParticle, OwnableBase
         // set name
         _name = name;
 
+        IRegistry.ParticleRegistration memory registration = IRegistry.ParticleRegistration({
+            owner: msg.sender,
+            featureName: featureName,
+            compositeNames: compsNames,
+            conditionName: conditionName,
+            conditionArgs: conditionCheckArgs
+        });
+
         // register particle
-        _registry.registerParticle(_name, this);
+        _registry.registerParticle(
+            _name,
+            this,
+            registration
+        );
     }
 
     //
@@ -128,10 +140,20 @@ abstract contract ParticleBase is IParticle, OwnableBase
     }
 
     //
-    function getComposite(uint32 dimId) external view returns (address)
+    function getComposite(uint32 dimId) external view returns (IParticle)
     {
         require(dimId < _composites.length, "composite dimension Id out of range");
         return _composites[dimId];
+    }
+
+    function getCondition() external view returns (ICondition)
+    {
+        return _condition;
+    }
+
+    function getConditionArgs() external view returns (int32[] memory)
+    {
+        return _conditionCheckArgs;
     }
 
     function checkCondition() external view override returns(bool)

@@ -19,7 +19,12 @@ abstract contract TransformationBase is ITransformation, OwnableBase
         _name = name;
         _argc = argc;
 
-        _registry.registerTransformation(_name, this);
+        IRegistry.TransformationRegistration memory registration = IRegistry.TransformationRegistration({
+            owner: msg.sender,
+            argsCount: _argc
+        });
+
+        _registry.registerTransformation(_name, this, registration);
     }
     
     function getArgsCount() external view returns(uint32)

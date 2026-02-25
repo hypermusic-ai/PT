@@ -121,8 +121,9 @@ contract Runner is IRunner, OwnableBase
             // when scalar we can fill out buffer
             compositeIndexes = sampleSpace(rooFeature, dimId, runningInstance, indexes);
 
-            address compositeAddress = particle.getComposite(dimId);
-            if(compositeAddress == address(0))
+            IParticle compositeParticle = particle.getComposite(dimId);
+
+            if(address(compositeParticle) == address(0))
             {
                 assert(dest < outBuffer.length);
                 // scalar, we can fill out buffer
@@ -137,7 +138,6 @@ contract Runner is IRunner, OwnableBase
                 continue;
             }
 
-            IParticle compositeParticle = IParticle(compositeAddress);
 
             // we are in case in which composite dimension is linked to another particle
 

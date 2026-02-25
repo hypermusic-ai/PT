@@ -8,20 +8,68 @@ import "../particle/IParticle.sol";
 
 interface IRegistry
 {
-    event FeatureAdded(address caller, string name, address featureAddr);
-    event TransformationAdded(address caller, string name, address transformationAddr);
-    event ConditionAdded(address caller, string name, address conditionAddr);
-    event ParticleAdded(address caller, string name, address particleAddr);
+    struct FeatureRegistration {
+        address owner;
+        uint32 dimensionsCount;
+    }
+
+    struct TransformationRegistration {
+        address owner;
+        uint32 argsCount;
+    }
+
+    struct ConditionRegistration {
+        address owner;
+        uint32 argsCount;
+    }
+
+    struct ParticleRegistration {
+        address owner;
+        string featureName;
+        string[] compositeNames;
+        string conditionName;
+        int32[] conditionArgs;
+    }
+
+    event FeatureAdded(address caller, string name, address featureAddr, address owner, uint32 dimensionsCount);
+    event TransformationAdded(address caller, string name, address transformationAddr, address owner, uint32 argsCount);
+    event ConditionAdded(address caller, string name, address conditionAddr, address owner, uint32 argsCount);
+    event ParticleAdded(
+        address indexed caller,
+        address indexed owner,
+        string name,
+        address particleAddr,
+        string featureName,
+        string[] compositeNames,
+        string conditionName,
+        int32[] conditionArgs
+    );
 
     event FeatureRemoved(address caller, string name);
     event TransformationRemoved(address caller, string name);
     event ConditionRemoved(address caller, string name);
     event ParticleRemoved(address caller, string name);
 
-    function registerFeature(string calldata name, IFeature feature) external;
-    function registerTransformation(string calldata name, ITransformation transformation) external;
-    function registerCondition(string calldata name, ICondition condition) external;
-    function registerParticle(string calldata name, IParticle particle) external;
+    function registerFeature(
+        string calldata name,
+        IFeature feature,
+        FeatureRegistration calldata registration
+    ) external;
+    function registerTransformation(
+        string calldata name,
+        ITransformation transformation,
+        TransformationRegistration calldata registration
+    ) external;
+    function registerCondition(
+        string calldata name,
+        ICondition condition,
+        ConditionRegistration calldata registration
+    ) external;
+    function registerParticle(
+        string calldata name,
+        IParticle particle,
+        ParticleRegistration calldata registration
+    ) external;
 
     function getFeature(string calldata name) external view returns (IFeature);
     function getTransformation(string calldata name) external view returns (ITransformation);

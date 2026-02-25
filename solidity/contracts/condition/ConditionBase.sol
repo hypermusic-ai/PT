@@ -19,11 +19,21 @@ abstract contract ConditionBase is ICondition, OwnableBase
         _name = name;
         _argc = argc;
 
-        _registry.registerCondition(_name, this);
+        IRegistry.ConditionRegistration memory registration = IRegistry.ConditionRegistration({
+            owner: msg.sender,
+            argsCount: _argc
+        });
+
+        _registry.registerCondition(_name, this, registration);
     }
 
     function getArgsCount() external view returns(uint32)
     {
         return _argc;
+    }
+
+    function getName() external view returns(string memory)
+    {
+        return _name;
     }
 }

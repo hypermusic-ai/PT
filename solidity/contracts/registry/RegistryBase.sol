@@ -27,48 +27,111 @@ contract RegistryBase is IRegistry, OwnableBase
         revert RegistryError(1);
     }
 
-    function registerFeature(string calldata name, IFeature feature) external {
+    function registerFeature(
+        string calldata name,
+        IFeature feature,
+        FeatureRegistration calldata registration
+    ) external {
         if(_features[name] != address(0))
         {
             revert FeatureAlreadyRegistered(keccak256(bytes(name)));
         }
-        
+
         _features[name] = address(feature);
         _featuresCount++;
-        emit FeatureAdded(msg.sender, name, _features[name]);
+        emit FeatureAdded(msg.sender, name, _features[name], registration.owner, registration.dimensionsCount);
     }
 
-    function registerTransformation(string calldata name, ITransformation transformation) external {
+    function registerTransformation(
+        string calldata name,
+        ITransformation transformation,
+        TransformationRegistration calldata registration
+    ) external {
         if(_transformations[name] != address(0))
         {
             revert TransformationAlreadyRegistered(keccak256(bytes(name)));
         }
-        
+
         _transformations[name] = address(transformation);
         _transformationsCount++;
-        emit TransformationAdded(msg.sender, name, _transformations[name]);
+        emit TransformationAdded(msg.sender, name, _transformations[name], registration.owner, registration.argsCount);
     }
 
-    function registerCondition(string calldata name, ICondition condition) external {
+    function registerCondition(
+        string calldata name,
+        ICondition condition,
+        ConditionRegistration calldata registration
+    ) external {
         if(_conditions[name] != address(0))
         {
             revert ConditionAlreadyRegistered(keccak256(bytes(name)));
         }
-        
+
         _conditions[name] = address(condition);
         _conditionsCount++;
-        emit ConditionAdded(msg.sender, name, _conditions[name]);
+        emit ConditionAdded(msg.sender, name, _conditions[name], registration.owner, registration.argsCount);
     }
 
-    function registerParticle(string calldata name, IParticle particle) external {
+    function registerParticle(
+        string calldata name,
+        IParticle particle,
+        ParticleRegistration calldata registration
+    ) external {
         if(_particles[name] != address(0))
         {
             revert ParticleAlreadyRegistered(keccak256(bytes(name)));
         }
-        
+
+        _validateParticleRegistration(registration);
+
         _particles[name] = address(particle);
         _particlesCount++;
-        emit ParticleAdded(msg.sender, name, _particles[name]);
+
+        _emitParticleAdded(name, address(particle), registration);
+    }
+
+    function _validateParticleRegistration(ParticleRegistration calldata registration) private view {
+        if(_features[registration.featureName] == address(0))
+        {
+            revert FeatureMissing(keccak256(bytes(registration.featureName)));
+        }
+
+        if(bytes(registration.conditionName).length != 0 && _conditions[registration.conditionName] == address(0))
+        {
+            revert ConditionMissing(keccak256(bytes(registration.conditionName)));
+        }
+
+        string[] calldata compositeNames = registration.compositeNames;
+        for (uint32 i = 0; i < compositeNames.length; ++i)
+        {
+            // Empty composite name is valid and represents a scalar slot.
+            if(bytes(compositeNames[i]).length == 0)
+            {
+                continue;
+            }
+
+            if(_particles[compositeNames[i]] == address(0))
+            {
+                revert ParticleMissing(keccak256(bytes(compositeNames[i])));
+            }            
+        }
+    }
+
+    function _emitParticleAdded(
+        string calldata name,
+        address particleAddress,
+        ParticleRegistration calldata registration
+    ) private {
+        emit ParticleAdded(
+            msg.sender,
+            registration.owner,
+            name,
+            particleAddress,
+            registration.featureName,
+            registration.compositeNames,
+            registration.conditionName,
+            registration.conditionArgs
+        );
     }
 
     function getFeature(string calldata name) external view returns (IFeature)

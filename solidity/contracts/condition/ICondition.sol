@@ -13,4 +13,7 @@ interface ICondition is IOwnable
     ///
     /// @param args Array containing arguments for this condition.
     function check(int32[] calldata args) external view returns (bool);
+
+    /// @notice Get name of condition
+    function getName() external view returns(string memory);
 }

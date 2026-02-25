@@ -66,8 +66,13 @@ abstract contract FeatureBase is IFeature, OwnableBase
             }
         }
 
+        IRegistry.FeatureRegistration memory registration = IRegistry.FeatureRegistration({
+            owner: msg.sender,
+            dimensionsCount: uint32(_transformations.length)
+        });
+
         // register
-        _registry.registerFeature(_name, this);
+        _registry.registerFeature(_name, this, registration);
     }
 
     function init() internal onlyInitializing
