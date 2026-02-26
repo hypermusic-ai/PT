@@ -82,55 +82,21 @@ contract RegistryBase is IRegistry, OwnableBase
             revert ParticleAlreadyRegistered(keccak256(bytes(name)));
         }
 
-        _validateParticleRegistration(registration);
-
         _particles[name] = address(particle);
         _particlesCount++;
 
-        _emitParticleAdded(name, address(particle), registration);
-    }
+        ParticleRegistration memory emittedRegistration = registration;
 
-    function _validateParticleRegistration(ParticleRegistration calldata registration) private view {
-        if(_features[registration.featureName] == address(0))
-        {
-            revert FeatureMissing(keccak256(bytes(registration.featureName)));
-        }
-
-        if(bytes(registration.conditionName).length != 0 && _conditions[registration.conditionName] == address(0))
-        {
-            revert ConditionMissing(keccak256(bytes(registration.conditionName)));
-        }
-
-        string[] calldata compositeNames = registration.compositeNames;
-        for (uint32 i = 0; i < compositeNames.length; ++i)
-        {
-            // Empty composite name is valid and represents a scalar slot.
-            if(bytes(compositeNames[i]).length == 0)
-            {
-                continue;
-            }
-
-            if(_particles[compositeNames[i]] == address(0))
-            {
-                revert ParticleMissing(keccak256(bytes(compositeNames[i])));
-            }            
-        }
-    }
-
-    function _emitParticleAdded(
-        string calldata name,
-        address particleAddress,
-        ParticleRegistration calldata registration
-    ) private {
         emit ParticleAdded(
             msg.sender,
-            registration.owner,
+            emittedRegistration.owner,
             name,
-            particleAddress,
-            registration.featureName,
-            registration.compositeNames,
-            registration.conditionName,
-            registration.conditionArgs
+            address(particle),
+            emittedRegistration.featureName,
+            emittedRegistration.compositeDimIds,
+            emittedRegistration.compositeNames,
+            emittedRegistration.conditionName,
+            emittedRegistration.conditionArgs
         );
     }
 

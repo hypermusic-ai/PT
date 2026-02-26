@@ -26,6 +26,7 @@ interface IRegistry
     struct ParticleRegistration {
         address owner;
         string featureName;
+        uint32[] compositeDimIds;
         string[] compositeNames;
         string conditionName;
         int32[] conditionArgs;
@@ -40,6 +41,7 @@ interface IRegistry
         string name,
         address particleAddr,
         string featureName,
+        uint32[] compositeDimIds,
         string[] compositeNames,
         string conditionName,
         int32[] conditionArgs

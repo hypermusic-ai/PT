@@ -26,7 +26,7 @@ abstract contract ParticleBase is IParticle, OwnableBase
         
     //
     function __ParticleBase_init(address registryAddr, string memory name,
-        string memory featureName, string[] memory compsNames,
+        string memory featureName, uint32[] memory compositeDimIds, string[] memory compositeNames,
         string memory conditionName, int32[] memory conditionCheckArgs) internal onlyInitializing {
         assert(registryAddr != address(0));
         __OwnableBase_init(msg.sender);
@@ -41,40 +41,49 @@ abstract contract ParticleBase is IParticle, OwnableBase
 
         _feature = _registry.getFeature(featureName);
 
-        // we need to have the same number of dimensions as our feature
-        if(_feature.getDimensionsCount() != compsNames.length)
+        if(compositeDimIds.length != compositeNames.length)
         {
             revert ParticleDimensionsMismatch(keccak256(bytes(name)));
         }
 
-        // allocate memory for composites
-        _composites = new IParticle[](_feature.getDimensionsCount());
+        uint32 dimensionsCount = _feature.getDimensionsCount();
 
-        _scalars = 0;
+        // allocate memory for composites
+        _composites = new IParticle[](dimensionsCount);
+
+        _scalars = dimensionsCount;
 
         // find sub particles
-        for(uint32 i = 0; i < compsNames.length; ++i)
+        for(uint32 i = 0; i < compositeNames.length; ++i)
         {
-            if (bytes(compsNames[i]).length == 0)
+            uint32 dimId = compositeDimIds[i];
+            if(dimId >= dimensionsCount)
             {
-                // this will be the scalar path
-                _composites[i] = IParticle(address(0));
-                _scalars += 1;
+                revert ParticleDimensionsMismatch(keccak256(bytes(name)));
             }
-            else 
-            { 
-                // this will be the composite path
-                if(_registry.containsParticle(compsNames[i]) == false)
-                {
-                    revert ParticleMissing(keccak256(bytes(compsNames[i])));
-                }
 
-                IParticle composite = _registry.getParticle(compsNames[i]);
-
-                _scalars += composite.getScalarsCount();
-
-                _composites[i] = composite;
+            if(address(_composites[dimId]) != address(0))
+            {
+                revert ParticleDimensionsMismatch(keccak256(bytes(name)));
             }
+
+            if(bytes(compositeNames[i]).length == 0)
+            {
+                revert ParticleDimensionsMismatch(keccak256(bytes(name)));
+            }
+
+            // this will be the composite path
+            if(_registry.containsParticle(compositeNames[i]) == false)
+            {
+                revert ParticleMissing(keccak256(bytes(compositeNames[i])));
+            }
+
+            IParticle composite = _registry.getParticle(compositeNames[i]);
+            _composites[dimId] = composite;
+
+            _scalars += composite.getScalarsCount();
+            assert(_scalars > 0);
+            _scalars -= 1;
         }
 
         // require condition
@@ -102,7 +111,8 @@ abstract contract ParticleBase is IParticle, OwnableBase
         IRegistry.ParticleRegistration memory registration = IRegistry.ParticleRegistration({
             owner: msg.sender,
             featureName: featureName,
-            compositeNames: compsNames,
+            compositeDimIds: compositeDimIds,
+            compositeNames: compositeNames,
             conditionName: conditionName,
             conditionArgs: conditionCheckArgs
         });
