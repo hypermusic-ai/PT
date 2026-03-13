@@ -11,12 +11,14 @@ interface IConnector is IOwnable
     function getName() external view returns(string memory);
     
     function getScalarsCount() external view returns (uint32);
+    function getOpenSlotsCount() external view returns (uint32);
 
     function getDimensionsCount() external view returns (uint32);
     function transform(uint32 dimId, uint32 txId, uint32 x) external view returns (uint32);
 
     function getCompositesCount() external view returns (uint32);
     function getComposite(uint32 dimId) external view returns (IConnector);
+    function getBindingComposite(uint32 dimId, uint32 slotId) external view returns (IConnector);
 
     function getCondition() external view returns (ICondition);
     function getConditionArgs() external view returns (int32[] memory);

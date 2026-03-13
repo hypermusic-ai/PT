@@ -22,6 +22,9 @@ interface IRegistry
         uint32 dimensionsCount;
         uint32[] compositeDimIds;
         string[] compositeNames;
+        uint32[] bindingDimIds;
+        uint32[] bindingSlotIds;
+        string[] bindingNames;
         string conditionName;
         int32[] conditionArgs;
     }
@@ -36,6 +39,9 @@ interface IRegistry
         uint32 dimensionsCount,
         uint32[] compositeDimIds,
         string[] compositeNames,
+        uint32[] bindingDimIds,
+        uint32[] bindingSlotIds,
+        string[] bindingNames,
         string conditionName,
         int32[] conditionArgs
     );

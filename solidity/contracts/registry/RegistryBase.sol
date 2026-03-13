@@ -78,6 +78,9 @@ contract RegistryBase is IRegistry, OwnableBase
             emittedRegistration.dimensionsCount,
             emittedRegistration.compositeDimIds,
             emittedRegistration.compositeNames,
+            emittedRegistration.bindingDimIds,
+            emittedRegistration.bindingSlotIds,
+            emittedRegistration.bindingNames,
             emittedRegistration.conditionName,
             emittedRegistration.conditionArgs
         );

@@ -19,7 +19,11 @@ abstract contract ConnectorBase is IConnector, OwnableConstructorBase
     CallDef                  private _transformationsCallDef;
 
     IConnector[]             private _composites;
+    uint32[][]               private _bindingSlotIds;
+    IConnector[][]           private _bindingComposites;
+
     uint32                   private _scalars;
+    uint32                   private _openSlots;
 
     ICondition               private _condition;
     int32[]                  private _conditionCheckArgs;
@@ -44,9 +48,25 @@ abstract contract ConnectorBase is IConnector, OwnableConstructorBase
         return _transformationsCallDef;
     }
 
+    function _findBindingComposite(uint32 dimId, uint32 slotId) internal view returns (IConnector)
+    {
+        for(uint32 i = 0; i < _bindingSlotIds[dimId].length; ++i)
+        {
+            if(_bindingSlotIds[dimId][i] == slotId)
+            {
+                return _bindingComposites[dimId][i];
+            }
+        }
+
+        return IConnector(address(0));
+    }
+
     function __ConnectorBase_finalizeInit(
         uint32[] memory compositeDimIds,
         string[] memory compositeNames,
+        uint32[] memory bindingDimIds,
+        uint32[] memory bindingSlotIds,
+        string[] memory bindingNames,
         string memory conditionName,
         int32[] memory conditionCheckArgs
     ) internal
@@ -82,9 +102,15 @@ abstract contract ConnectorBase is IConnector, OwnableConstructorBase
             revert ConnectorDimensionsMismatch(keccak256(bytes(_name)));
         }
 
+        if(bindingDimIds.length != bindingSlotIds.length || bindingDimIds.length != bindingNames.length)
+        {
+            revert ConnectorDimensionsMismatch(keccak256(bytes(_name)));
+        }
+
         uint32 dimensionsCount = uint32(_transformations.length);
         _composites = new IConnector[](dimensionsCount);
-        _scalars = dimensionsCount;
+        _bindingSlotIds = new uint32[][](dimensionsCount);
+        _bindingComposites = new IConnector[][](dimensionsCount);
 
         for(uint32 i = 0; i < compositeNames.length; ++i)
         {
@@ -111,8 +137,67 @@ abstract contract ConnectorBase is IConnector, OwnableConstructorBase
 
             IConnector composite = _registry.getConnector(compositeNames[i]);
             _composites[dimId] = composite;
+        }
+
+        _scalars = 0;
+        _openSlots = 0;
+        for(uint32 dimId = 0; dimId < dimensionsCount; ++dimId)
+        {
+            IConnector composite = _composites[dimId];
+            if(address(composite) == address(0))
+            {
+                _scalars += 1;
+                _openSlots += 1;
+                continue;
+            }
 
             _scalars += composite.getScalarsCount();
+            _openSlots += composite.getOpenSlotsCount();
+        }
+
+        for(uint32 i = 0; i < bindingNames.length; ++i)
+        {
+            uint32 dimId = bindingDimIds[i];
+            if(dimId >= dimensionsCount)
+            {
+                revert ConnectorDimensionsMismatch(keccak256(bytes(_name)));
+            }
+
+            IConnector composite = _composites[dimId];
+            if(address(composite) == address(0))
+            {
+                revert ConnectorDimensionsMismatch(keccak256(bytes(_name)));
+            }
+
+            uint32 slotId = bindingSlotIds[i];
+            if(slotId >= composite.getOpenSlotsCount())
+            {
+                revert ConnectorDimensionsMismatch(keccak256(bytes(_name)));
+            }
+
+            if(bytes(bindingNames[i]).length == 0)
+            {
+                revert ConnectorDimensionsMismatch(keccak256(bytes(_name)));
+            }
+
+            if(address(_findBindingComposite(dimId, slotId)) != address(0))
+            {
+                revert ConnectorDimensionsMismatch(keccak256(bytes(_name)));
+            }
+
+            if(_registry.containsConnector(bindingNames[i]) == false)
+            {
+                revert ConnectorMissing(keccak256(bytes(bindingNames[i])));
+            }
+
+            IConnector bindingComposite = _registry.getConnector(bindingNames[i]);
+            _bindingSlotIds[dimId].push(slotId);
+            _bindingComposites[dimId].push(bindingComposite);
+
+            assert(_openSlots > 0);
+            _openSlots -= 1;
+
+            _scalars += bindingComposite.getScalarsCount();
             assert(_scalars > 0);
             _scalars -= 1;
         }
@@ -139,6 +224,9 @@ abstract contract ConnectorBase is IConnector, OwnableConstructorBase
             dimensionsCount: dimensionsCount,
             compositeDimIds: compositeDimIds,
             compositeNames: compositeNames,
+            bindingDimIds: bindingDimIds,
+            bindingSlotIds: bindingSlotIds,
+            bindingNames: bindingNames,
             conditionName: conditionName,
             conditionArgs: conditionCheckArgs
         });
@@ -155,6 +243,11 @@ abstract contract ConnectorBase is IConnector, OwnableConstructorBase
     function getScalarsCount() external view returns (uint32)
     {
         return _scalars;
+    }
+
+    function getOpenSlotsCount() external view returns (uint32)
+    {
+        return _openSlots;
     }
 
     function getDimensionsCount() external view returns (uint32)
@@ -183,6 +276,12 @@ abstract contract ConnectorBase is IConnector, OwnableConstructorBase
     {
         require(dimId < _composites.length, "composite dimension Id out of range");
         return _composites[dimId];
+    }
+
+    function getBindingComposite(uint32 dimId, uint32 slotId) external view returns (IConnector)
+    {
+        require(dimId < _bindingSlotIds.length, "binding dimension Id out of range");
+        return _findBindingComposite(dimId, slotId);
     }
 
     function getCondition() external view returns (ICondition)
