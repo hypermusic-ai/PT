@@ -90,7 +90,7 @@ contract Runner is IRunner, OwnableBase
 
         string memory basePath = string(abi.encodePacked(path, "/", connector.getName()));
 
-        IFeature rooFeature = connector.getRootFeature();
+        IFeature rootFeature = connector.getRootFeature();
         
         // from which starting point should we generate actual composite feature
         RunningInstance memory runningInstance;
@@ -142,8 +142,8 @@ contract Runner is IRunner, OwnableBase
             // we are in case in which composite dimension is linked to another connector
 
             // recursively fill out buffer range
-            // runningInstanceId + 1 because we we took current runningInstance for parent feature
-            // our generated composite indexes become indexes for child connector
+            // runningInstanceId already points to the next running instance because we took the current runningInstance for the parent feature
+            // our generated compositeIndexes become indexes for the child connector
             decompose(compositePath, compositeConnector, runningInstances, runningInstanceId, compositeIndexes, dest, outBuffer);
 
             dest += compositeConnector.getScalarsCount();
