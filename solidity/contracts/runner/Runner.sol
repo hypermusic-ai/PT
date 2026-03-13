@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity >=0.8.2 <0.9.0;
 
-import "../particle/IParticle.sol";
+import "../connector/IConnector.sol";
 import "../registry/IRegistry.sol";
 import "../error/Error.sol";
 import "../ownable/OwnableBase.sol";
@@ -14,7 +14,7 @@ struct RunningInstance {
     uint32 transformShift;
 }
 
-struct Samples
+struct Particles
 {
     string path;
     uint32[] data;
@@ -22,7 +22,7 @@ struct Samples
 
 interface IRunner
 {
-    function gen(string memory name, uint32 samplesCount, RunningInstance[] memory runningInstances) external view returns (Samples[] memory);
+    function gen(string memory name, uint32 particlesCount, RunningInstance[] memory runningInstances) external view returns (Particles[] memory);
 }
 
 contract Runner is IRunner, OwnableBase
@@ -34,14 +34,14 @@ contract Runner is IRunner, OwnableBase
         _registry = IRegistry(registryAddr);
     }
 
-    function genSpace(IFeature feature, uint32 dimId, RunningInstance memory runningInstance, uint32 samplesCount) private view returns (uint32[] memory)
+    function genSpace(IFeature feature, uint32 dimId, RunningInstance memory runningInstance, uint32 particlesCount) private view returns (uint32[] memory)
     {
         assert(dimId < feature.getDimensionsCount());
 
-        uint32[] memory space = new uint32[](samplesCount);
+        uint32[] memory space = new uint32[](particlesCount);
 
         uint32 x = runningInstance.startPoint;
-        for(uint32 opId = 0; opId < samplesCount; ++opId)
+        for(uint32 opId = 0; opId < particlesCount; ++opId)
         {
             space[opId] = x;
             // calculate next element in space
@@ -51,46 +51,46 @@ contract Runner is IRunner, OwnableBase
         return space;
     }
 
-    function sampleSpace(IFeature feature, uint32 dimId, RunningInstance memory runningInstance, uint32[] memory samplesIndexes) private view returns (uint32[] memory)
+    function collectParticleSpace(IFeature feature, uint32 dimId, RunningInstance memory runningInstance, uint32[] memory particleIndexes) private view returns (uint32[] memory)
     {   
         assert(dimId < feature.getDimensionsCount());
 
-        // need to generate space from 0 up to max(samplesIndexes) + 1
-        // we find last index which will be sampled
+        // need to generate space from 0 up to max(particleIndexes) + 1
+        // we find the last index which will be collected
         uint32 spaceSize = 0;
-        for(uint32 i = 0; i < samplesIndexes.length; ++i)
+        for(uint32 i = 0; i < particleIndexes.length; ++i)
         {
-            if(samplesIndexes[i] > spaceSize)spaceSize = samplesIndexes[i];
+            if(particleIndexes[i] > spaceSize)spaceSize = particleIndexes[i];
         }
         spaceSize += 1;
 
         // generate space
         uint32[] memory space;
-        // because we need to sample from this space element [max(samplesIndexes)]
+        // because we need to collect up to this space element [max(particleIndexes)]
         space = genSpace(feature, dimId, runningInstance, spaceSize);
 
-        // perform sampling from space
-        uint32[] memory elements = new uint32[](samplesIndexes.length);
-        for(uint32 i = 0; i < samplesIndexes.length; ++i)
+        // collect selected indices from space
+        uint32[] memory elements = new uint32[](particleIndexes.length);
+        for(uint32 i = 0; i < particleIndexes.length; ++i)
         {
-            elements[i] = space[samplesIndexes[i]];
+            elements[i] = space[particleIndexes[i]];
         }
 
         return elements;
     }
 
-    function decompose(string memory path, IParticle particle, RunningInstance[] memory runningInstances, uint32 runningInstanceId, uint32[] memory indexes, uint32 dest, Samples[] memory outBuffer) view private
+    function decompose(string memory path, IConnector connector, RunningInstance[] memory runningInstances, uint32 runningInstanceId, uint32[] memory indexes, uint32 dest, Particles[] memory outBuffer) view private
     {
         assert(dest < outBuffer.length);
 
-        if(particle.checkCondition() == false)
+        if(connector.checkCondition() == false)
         {
-            revert ConditionNotMet(keccak256(bytes(particle.getName())));
+            revert ConditionNotMet(keccak256(bytes(connector.getName())));
         }
 
-        string memory basePath = string(abi.encodePacked(path, "/", particle.getName()));
+        string memory basePath = string(abi.encodePacked(path, "/", connector.getName()));
 
-        IFeature rooFeature = particle.getRootFeature();
+        IFeature rootFeature = connector.getRootFeature();
         
         // from which starting point should we generate actual composite feature
         RunningInstance memory runningInstance;
@@ -99,7 +99,7 @@ contract Runner is IRunner, OwnableBase
         uint32[] memory compositeIndexes;
         
         // for every composite run decompose at designated buffer index
-        for(uint32 dimId = 0; dimId < particle.getCompositesCount(); ++dimId)
+        for(uint32 dimId = 0; dimId < connector.getCompositesCount(); ++dimId)
         {
             string memory compositePath = string(abi.encodePacked(basePath, ":", Strings.toString(dimId)));
 
@@ -119,11 +119,11 @@ contract Runner is IRunner, OwnableBase
             // we always need to calculate elements from dimension
             // when compound feature is present it passes it as indexes to further decompose 
             // when scalar we can fill out buffer
-            compositeIndexes = sampleSpace(rooFeature, dimId, runningInstance, indexes);
+            compositeIndexes = collectParticleSpace(rootFeature, dimId, runningInstance, indexes);
 
-            IParticle compositeParticle = particle.getComposite(dimId);
+            IConnector compositeConnector = connector.getComposite(dimId);
 
-            if(address(compositeParticle) == address(0))
+            if(address(compositeConnector) == address(0))
             {
                 assert(dest < outBuffer.length);
                 // scalar, we can fill out buffer
@@ -139,41 +139,41 @@ contract Runner is IRunner, OwnableBase
             }
 
 
-            // we are in case in which composite dimension is linked to another particle
+            // we are in case in which composite dimension is linked to another connector
 
             // recursively fill out buffer range
-            // runningInstanceId + 1 because we we took current runningInstance for parent feature
-            // our generated composite indexes become indexes for child particle
-            decompose(compositePath, compositeParticle, runningInstances, runningInstanceId, compositeIndexes, dest, outBuffer);
+            // runningInstanceId already points to the next running instance because we took the current runningInstance for the parent feature
+            // our generated compositeIndexes become indexes for the child connector
+            decompose(compositePath, compositeConnector, runningInstances, runningInstanceId, compositeIndexes, dest, outBuffer);
 
-            dest += compositeParticle.getScalarsCount();
+            dest += compositeConnector.getScalarsCount();
         }
     }
 
-    function gen(string memory name, uint32 samplesCount, RunningInstance[] memory runningInstances) external view returns (Samples[] memory)
+    function gen(string memory name, uint32 particlesCount, RunningInstance[] memory runningInstances) external view returns (Particles[] memory)
     {
-        require(samplesCount > 0, "number of samples must be greater than 0");
-        require(_registry.containsParticle(name), "cannot find particle");
+        require(particlesCount > 0, "number of particles must be greater than 0");
+        require(_registry.containsConnector(name), "cannot find connector");
 
-        IParticle particle = _registry.getParticle(name);
+        IConnector connector = _registry.getConnector(name);
 
-        uint32 numberOfScalars = particle.getScalarsCount();
+        uint32 numberOfScalars = connector.getScalarsCount();
         assert(numberOfScalars > 0);
 
         // allocate memory for scalar data
-        Samples[] memory samplesBuffer = new Samples[](numberOfScalars);
+        Particles[] memory particlesBuffer = new Particles[](numberOfScalars);
         for(uint32 i = 0; i < numberOfScalars; ++i)
         {
-            samplesBuffer[i].data = new uint32[](samplesCount);
+            particlesBuffer[i].data = new uint32[](particlesCount);
         }
 
-        // we will generate sequential list of samplesCount objects from actual particle
-        // generate 0th element from particle
-        // generate 1st el from particle
+        // we will generate sequential list of particlesCount objects from actual connector
+        // generate 0th element from connector
+        // generate 1st el from connector
         //...
-        // gen (samplesCount-1)th el from particle
-        // to generate 0th element from particle we need to specify from which starting points 
-        // should it generate all of its composite particles
+        // gen (particlesCount-1)th el from connector
+        // to generate 0th element from connector we need to specify from which starting points 
+        // should it generate all of its composite connectors
         // it will give us the FIRST generated element of that particular generate call
         uint32 start = 0;
         if(runningInstances.length > 0) 
@@ -181,14 +181,14 @@ contract Runner is IRunner, OwnableBase
             start = runningInstances[0].startPoint;
         }
 
-        uint32[] memory indexes = new uint32[](samplesCount);
-        for(uint32 i = 0; i < samplesCount; ++i)
+        uint32[] memory indexes = new uint32[](particlesCount);
+        for(uint32 i = 0; i < particlesCount; ++i)
         {
             indexes[i] = i + start;
         }
 
-        decompose("", particle, runningInstances, 1, indexes, 0, samplesBuffer);
+        decompose("", connector, runningInstances, 1, indexes, 0, particlesBuffer);
         
-        return (samplesBuffer);
+        return (particlesBuffer);
     }
 }

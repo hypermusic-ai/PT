@@ -10,12 +10,12 @@ contract RegistryBase is IRegistry, OwnableBase
     mapping(string => address) private _features;
     mapping(string => address) private _transformations;
     mapping(string => address) private _conditions;
-    mapping(string => address) private _particles;
+    mapping(string => address) private _connectors;
 
     uint256 private _featuresCount;
     uint256 private _transformationsCount;
     uint256 private _conditionsCount;
-    uint256 private _particlesCount;
+    uint256 private _connectorsCount;
 
     function initialize() external initializer {
         __OwnableBase_init(msg.sender);
@@ -72,26 +72,26 @@ contract RegistryBase is IRegistry, OwnableBase
         emit ConditionAdded(msg.sender, name, _conditions[name], registration.owner, registration.argsCount);
     }
 
-    function registerParticle(
+    function registerConnector(
         string calldata name,
-        IParticle particle,
-        ParticleRegistration calldata registration
+        IConnector connector,
+        ConnectorRegistration calldata registration
     ) external {
-        if(_particles[name] != address(0))
+        if(_connectors[name] != address(0))
         {
-            revert ParticleAlreadyRegistered(keccak256(bytes(name)));
+            revert ConnectorAlreadyRegistered(keccak256(bytes(name)));
         }
 
-        _particles[name] = address(particle);
-        _particlesCount++;
+        _connectors[name] = address(connector);
+        _connectorsCount++;
 
-        ParticleRegistration memory emittedRegistration = registration;
+        ConnectorRegistration memory emittedRegistration = registration;
 
-        emit ParticleAdded(
+        emit ConnectorAdded(
             msg.sender,
             emittedRegistration.owner,
             name,
-            address(particle),
+            address(connector),
             emittedRegistration.featureName,
             emittedRegistration.compositeDimIds,
             emittedRegistration.compositeNames,
@@ -127,13 +127,13 @@ contract RegistryBase is IRegistry, OwnableBase
         return ICondition(_conditions[name]);
     }
 
-    function getParticle(string calldata name) external view returns (IParticle)
+    function getConnector(string calldata name) external view returns (IConnector)
     {
-        if(_particles[name] == address(0))
+        if(_connectors[name] == address(0))
         {
-            revert ParticleMissing(keccak256(bytes(name)));
+            revert ConnectorMissing(keccak256(bytes(name)));
         }
-        return IParticle(_particles[name]);
+        return IConnector(_connectors[name]);
     }
 
     function clearFeature(string calldata name) external {
@@ -169,15 +169,15 @@ contract RegistryBase is IRegistry, OwnableBase
         emit ConditionRemoved(msg.sender, name);
     }
 
-    function clearParticle(string calldata name) external {
-        if(_particles[name] == address(0))
+    function clearConnector(string calldata name) external {
+        if(_connectors[name] == address(0))
         {
-            revert ParticleMissing(keccak256(bytes(name)));
+            revert ConnectorMissing(keccak256(bytes(name)));
         }
-        _particles[name] = address(0);
-        assert(_particlesCount > 0);
-        _particlesCount--;
-        emit ParticleRemoved(msg.sender, name);
+        _connectors[name] = address(0);
+        assert(_connectorsCount > 0);
+        _connectorsCount--;
+        emit ConnectorRemoved(msg.sender, name);
     }
 
     function containsFeature(string calldata name) external view returns (bool)
@@ -195,9 +195,9 @@ contract RegistryBase is IRegistry, OwnableBase
         return _conditions[name] != address(0);
     }
 
-    function containsParticle(string calldata name) external view returns (bool)
+    function containsConnector(string calldata name) external view returns (bool)
     {
-        return _particles[name] != address(0);
+        return _connectors[name] != address(0);
     }
 
     function featuresCount() external view returns (uint) {
@@ -212,7 +212,7 @@ contract RegistryBase is IRegistry, OwnableBase
         return _conditionsCount;
     }
 
-    function particlesCount() external view returns (uint) {
-        return _particlesCount;
+    function connectorsCount() external view returns (uint) {
+        return _connectorsCount;
     }
 }
