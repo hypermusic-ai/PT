@@ -119,7 +119,7 @@ contract Runner is IRunner, OwnableBase
             // we always need to calculate elements from dimension
             // when compound feature is present it passes it as indexes to further decompose 
             // when scalar we can fill out buffer
-            compositeIndexes = collectParticleSpace(rooFeature, dimId, runningInstance, indexes);
+            compositeIndexes = collectParticleSpace(rootFeature, dimId, runningInstance, indexes);
 
             IConnector compositeConnector = connector.getComposite(dimId);
 
