@@ -4,8 +4,6 @@ pragma solidity >=0.8.2 <0.9.0;
 
 import "../ownable/IOwnable.sol";
 
-import "../feature/IFeature.sol";
-
 import "../condition/ICondition.sol";
 
 interface IConnector is IOwnable
@@ -14,7 +12,9 @@ interface IConnector is IOwnable
     
     function getScalarsCount() external view returns (uint32);
 
-    function getRootFeature() external view returns (IFeature);
+    function getDimensionsCount() external view returns (uint32);
+    function transform(uint32 dimId, uint32 txId, uint32 x) external view returns (uint32);
+
     function getCompositesCount() external view returns (uint32);
     function getComposite(uint32 dimId) external view returns (IConnector);
 

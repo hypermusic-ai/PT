@@ -1,78 +1,109 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity >=0.8.2 <0.9.0;
+
 import "./IConnector.sol";
 
 import "../registry/IRegistry.sol";
-import "../feature/IFeature.sol";
 import "../transformation/ITransformation.sol";
 import "../condition/ICondition.sol";
 
-import "../ownable/OwnableBase.sol";
+import "../ownable/OwnableConstructorBase.sol";
 import "../error/Error.sol";
 
-
-abstract contract ConnectorBase is IConnector, OwnableBase
+abstract contract ConnectorBase is IConnector, OwnableConstructorBase
 {
-    IRegistry               private _registry;
-    string                  private _name;
+    IRegistry                private _registry;
+    string                   private _name;
 
-    IFeature                private _feature;
+    ITransformation[][]      private _transformations;
+    CallDef                  private _transformationsCallDef;
+
     IConnector[]             private _composites;
+    uint32                   private _scalars;
 
-    uint32                  private _scalars;
+    ICondition               private _condition;
+    int32[]                  private _conditionCheckArgs;
 
-    ICondition              private _condition;
-    int32[]                 private _conditionCheckArgs;
-        
-    //
-    function __ConnectorBase_init(address registryAddr, string memory name,
-        string memory featureName, uint32[] memory compositeDimIds, string[] memory compositeNames,
-        string memory conditionName, int32[] memory conditionCheckArgs) internal onlyInitializing {
-        assert(registryAddr != address(0));
-        __OwnableBase_init(msg.sender);
+    bool                     private _finalized;
+
+    constructor(address registryAddr, string memory name, uint32 dimensionsCount)
+        OwnableConstructorBase(msg.sender)
+    {
+        require(registryAddr != address(0), "registry is zero");
+        require(dimensionsCount > 0, "dimensions is zero");
 
         _registry = IRegistry(registryAddr);
-        
-        // find assigned feature
-        if (_registry.containsFeature(featureName) == false)
-        {
-            revert FeatureMissing(keccak256(bytes(featureName)));
-        }
+        _name = name;
 
-        _feature = _registry.getFeature(featureName);
+        _transformationsCallDef = new CallDef(dimensionsCount);
+        _transformations = new ITransformation[][](dimensionsCount);
+    }
+
+    function getCallDef() internal view returns (CallDef)
+    {
+        return _transformationsCallDef;
+    }
+
+    function __ConnectorBase_finalizeInit(
+        uint32[] memory compositeDimIds,
+        string[] memory compositeNames,
+        string memory conditionName,
+        int32[] memory conditionCheckArgs
+    ) internal
+    {
+        require(_finalized == false, "already finalized");
+        require(_transformationsCallDef.getDimensionsCount() == _transformations.length, "invalid dimensions");
+
+        for(uint32 dimId = 0; dimId < _transformations.length; ++dimId)
+        {
+            uint32 opCount = _transformationsCallDef.getTransformationsCount(dimId);
+
+            for(uint32 opId = 0; opId < opCount; ++opId)
+            {
+                string memory transformationName = _transformationsCallDef.names(dimId, opId);
+                if(_registry.containsTransformation(transformationName) == false)
+                {
+                    revert TransformationMissing(keccak256(bytes(transformationName)));
+                }
+
+                ITransformation transformation = _registry.getTransformation(transformationName);
+
+                if(_transformationsCallDef.getArgsCount(dimId, opId) != transformation.getArgsCount())
+                {
+                    revert TransformationArgumentsMismatch(keccak256(bytes(transformationName)));
+                }
+
+                _transformations[dimId].push(transformation);
+            }
+        }
 
         if(compositeDimIds.length != compositeNames.length)
         {
-            revert ConnectorDimensionsMismatch(keccak256(bytes(name)));
+            revert ConnectorDimensionsMismatch(keccak256(bytes(_name)));
         }
 
-        uint32 dimensionsCount = _feature.getDimensionsCount();
-
-        // allocate memory for composites
+        uint32 dimensionsCount = uint32(_transformations.length);
         _composites = new IConnector[](dimensionsCount);
-
         _scalars = dimensionsCount;
 
-        // find sub connectors
         for(uint32 i = 0; i < compositeNames.length; ++i)
         {
             uint32 dimId = compositeDimIds[i];
             if(dimId >= dimensionsCount)
             {
-                revert ConnectorDimensionsMismatch(keccak256(bytes(name)));
+                revert ConnectorDimensionsMismatch(keccak256(bytes(_name)));
             }
 
             if(address(_composites[dimId]) != address(0))
             {
-                revert ConnectorDimensionsMismatch(keccak256(bytes(name)));
+                revert ConnectorDimensionsMismatch(keccak256(bytes(_name)));
             }
 
             if(bytes(compositeNames[i]).length == 0)
             {
-                revert ConnectorDimensionsMismatch(keccak256(bytes(name)));
+                revert ConnectorDimensionsMismatch(keccak256(bytes(_name)));
             }
 
-            // this will be the composite path
             if(_registry.containsConnector(compositeNames[i]) == false)
             {
                 revert ConnectorMissing(keccak256(bytes(compositeNames[i])));
@@ -86,7 +117,6 @@ abstract contract ConnectorBase is IConnector, OwnableBase
             _scalars -= 1;
         }
 
-        // require condition
         if(bytes(conditionName).length != 0)
         {
             if(_registry.containsCondition(conditionName) == false)
@@ -94,62 +124,61 @@ abstract contract ConnectorBase is IConnector, OwnableBase
                 revert ConditionMissing(keccak256(bytes(conditionName)));
             }
 
-            // set condition
             _condition = _registry.getCondition(conditionName);
 
             if(conditionCheckArgs.length != _condition.getArgsCount())
             {
                 revert ConditionArgumentsMismatch(keccak256(bytes(conditionName)));
             }
-            // set args
+
             _conditionCheckArgs = conditionCheckArgs;
         }
 
-        // set name
-        _name = name;
-
         IRegistry.ConnectorRegistration memory registration = IRegistry.ConnectorRegistration({
             owner: msg.sender,
-            featureName: featureName,
+            dimensionsCount: dimensionsCount,
             compositeDimIds: compositeDimIds,
             compositeNames: compositeNames,
             conditionName: conditionName,
             conditionArgs: conditionCheckArgs
         });
 
-        // register connector
-        _registry.registerConnector(
-            _name,
-            this,
-            registration
-        );
+        _registry.registerConnector(_name, this, registration);
+        _finalized = true;
     }
 
-    //
     function getName() external view returns(string memory)
     {
         return _name;
     }
 
-    //
     function getScalarsCount() external view returns (uint32)
     {
         return _scalars;
     }
 
-    //
-    function getRootFeature() external view returns (IFeature)
+    function getDimensionsCount() external view returns (uint32)
     {
-        return _feature;
+        return uint32(_transformations.length);
     }
 
-    //
+    function transform(uint32 dimId, uint32 txId, uint32 x) external view returns (uint32)
+    {
+        require(dimId < _transformations.length, "invalid dimension id");
+        if(_transformations[dimId].length == 0)
+        {
+            return x;
+        }
+
+        txId %= uint32(_transformations[dimId].length);
+        return _transformations[dimId][txId].run(x, _transformationsCallDef.getArgs(dimId, txId));
+    }
+
     function getCompositesCount() external view returns (uint32)
     {
-        return (uint32)(_composites.length);
+        return uint32(_composites.length);
     }
 
-    //
     function getComposite(uint32 dimId) external view returns (IConnector)
     {
         require(dimId < _composites.length, "composite dimension Id out of range");
@@ -168,9 +197,11 @@ abstract contract ConnectorBase is IConnector, OwnableBase
 
     function checkCondition() external view override returns(bool)
     {
-        // no condition
-        if(address(_condition) == address(0)) return true;
+        if(address(_condition) == address(0))
+        {
+            return true;
+        }
 
         return _condition.check(_conditionCheckArgs);
     }
-} 
+}

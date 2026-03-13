@@ -34,9 +34,9 @@ contract Runner is IRunner, OwnableBase
         _registry = IRegistry(registryAddr);
     }
 
-    function genSpace(IFeature feature, uint32 dimId, RunningInstance memory runningInstance, uint32 particlesCount) private view returns (uint32[] memory)
+    function genSpace(IConnector connector, uint32 dimId, RunningInstance memory runningInstance, uint32 particlesCount) private view returns (uint32[] memory)
     {
-        assert(dimId < feature.getDimensionsCount());
+        assert(dimId < connector.getDimensionsCount());
 
         uint32[] memory space = new uint32[](particlesCount);
 
@@ -45,15 +45,15 @@ contract Runner is IRunner, OwnableBase
         {
             space[opId] = x;
             // calculate next element in space
-            x = feature.transform(dimId, opId + runningInstance.transformShift, x);
+            x = connector.transform(dimId, opId + runningInstance.transformShift, x);
         }
 
         return space;
     }
 
-    function collectParticleSpace(IFeature feature, uint32 dimId, RunningInstance memory runningInstance, uint32[] memory particleIndexes) private view returns (uint32[] memory)
+    function collectParticleSpace(IConnector connector, uint32 dimId, RunningInstance memory runningInstance, uint32[] memory particleIndexes) private view returns (uint32[] memory)
     {   
-        assert(dimId < feature.getDimensionsCount());
+        assert(dimId < connector.getDimensionsCount());
 
         // need to generate space from 0 up to max(particleIndexes) + 1
         // we find the last index which will be collected
@@ -67,7 +67,7 @@ contract Runner is IRunner, OwnableBase
         // generate space
         uint32[] memory space;
         // because we need to collect up to this space element [max(particleIndexes)]
-        space = genSpace(feature, dimId, runningInstance, spaceSize);
+        space = genSpace(connector, dimId, runningInstance, spaceSize);
 
         // collect selected indices from space
         uint32[] memory elements = new uint32[](particleIndexes.length);
@@ -90,9 +90,7 @@ contract Runner is IRunner, OwnableBase
 
         string memory basePath = string(abi.encodePacked(path, "/", connector.getName()));
 
-        IFeature rootFeature = connector.getRootFeature();
-        
-        // from which starting point should we generate actual composite feature
+        // from which starting point should we generate actual composite dimension
         RunningInstance memory runningInstance;
 
         // buffer for indexes
@@ -117,9 +115,9 @@ contract Runner is IRunner, OwnableBase
             }
 
             // we always need to calculate elements from dimension
-            // when compound feature is present it passes it as indexes to further decompose 
+            // when compound connector is present it passes it as indexes to further decompose 
             // when scalar we can fill out buffer
-            compositeIndexes = collectParticleSpace(rootFeature, dimId, runningInstance, indexes);
+            compositeIndexes = collectParticleSpace(connector, dimId, runningInstance, indexes);
 
             IConnector compositeConnector = connector.getComposite(dimId);
 
@@ -142,7 +140,7 @@ contract Runner is IRunner, OwnableBase
             // we are in case in which composite dimension is linked to another connector
 
             // recursively fill out buffer range
-            // runningInstanceId already points to the next running instance because we took the current runningInstance for the parent feature
+            // runningInstanceId already points to the next running instance because we took the current runningInstance for the parent connector
             // our generated compositeIndexes become indexes for the child connector
             decompose(compositePath, compositeConnector, runningInstances, runningInstanceId, compositeIndexes, dest, outBuffer);
 
