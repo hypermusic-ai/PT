@@ -90,7 +90,7 @@ contract Runner is IRunner, OwnableBase
 
         string memory basePath = string(abi.encodePacked(path, "/", connector.getName()));
 
-        IFeature rooFeature = connector.getRootFeature();
+        IFeature rootFeature = connector.getRootFeature();
         
         // from which starting point should we generate actual composite feature
         RunningInstance memory runningInstance;
