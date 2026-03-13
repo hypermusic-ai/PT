@@ -3,17 +3,18 @@ pragma solidity >=0.8.2 <0.9.0;
 
 import "./ITransformation.sol";
 import "../registry/IRegistry.sol";
-import "../ownable/OwnableBase.sol";
+import "../ownable/OwnableConstructorBase.sol";
 
-abstract contract TransformationBase is ITransformation, OwnableBase
+abstract contract TransformationBase is ITransformation, OwnableConstructorBase
 {
     IRegistry    private _registry;
     string      private _name;
     uint32      private _argc;
 
-    function __TransformationBase_init(address registryAddr, string memory name, uint32 argc) internal onlyInitializing {
-        require(registryAddr != address(0));
-        __OwnableBase_init(msg.sender);
+    constructor(address registryAddr, string memory name, uint32 argc)
+        OwnableConstructorBase(msg.sender)
+    {
+        require(registryAddr != address(0), "registry is zero");
 
         _registry = IRegistry(registryAddr);
         _name = name;

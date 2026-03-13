@@ -7,12 +7,10 @@ import "../ownable/OwnableBase.sol";
 
 contract RegistryBase is IRegistry, OwnableBase
 {
-    mapping(string => address) private _features;
     mapping(string => address) private _transformations;
     mapping(string => address) private _conditions;
     mapping(string => address) private _connectors;
 
-    uint256 private _featuresCount;
     uint256 private _transformationsCount;
     uint256 private _conditionsCount;
     uint256 private _connectorsCount;
@@ -25,21 +23,6 @@ contract RegistryBase is IRegistry, OwnableBase
     // functions match the given function signature, or if no data is supplied at all
     fallback() external {
         revert RegistryError(1);
-    }
-
-    function registerFeature(
-        string calldata name,
-        IFeature feature,
-        FeatureRegistration calldata registration
-    ) external {
-        if(_features[name] != address(0))
-        {
-            revert FeatureAlreadyRegistered(keccak256(bytes(name)));
-        }
-
-        _features[name] = address(feature);
-        _featuresCount++;
-        emit FeatureAdded(msg.sender, name, _features[name], registration.owner, registration.dimensionsCount);
     }
 
     function registerTransformation(
@@ -92,21 +75,15 @@ contract RegistryBase is IRegistry, OwnableBase
             emittedRegistration.owner,
             name,
             address(connector),
-            emittedRegistration.featureName,
+            emittedRegistration.dimensionsCount,
             emittedRegistration.compositeDimIds,
             emittedRegistration.compositeNames,
+            emittedRegistration.bindingDimIds,
+            emittedRegistration.bindingSlotIds,
+            emittedRegistration.bindingNames,
             emittedRegistration.conditionName,
             emittedRegistration.conditionArgs
         );
-    }
-
-    function getFeature(string calldata name) external view returns (IFeature)
-    {
-        if(_features[name] == address(0))
-        {
-            revert FeatureMissing(keccak256(bytes(name)));
-        }
-        return IFeature(_features[name]);
     }
 
     function getTransformation(string calldata name) external view returns (ITransformation)
@@ -134,17 +111,6 @@ contract RegistryBase is IRegistry, OwnableBase
             revert ConnectorMissing(keccak256(bytes(name)));
         }
         return IConnector(_connectors[name]);
-    }
-
-    function clearFeature(string calldata name) external {
-        if(_features[name] == address(0))
-        {
-            revert FeatureMissing(keccak256(bytes(name)));
-        }
-        _features[name] = address(0);
-        assert(_featuresCount > 0);
-        _featuresCount--;
-        emit FeatureRemoved(msg.sender, name);
     }
 
     function clearTransformation(string calldata name) external {
@@ -180,11 +146,6 @@ contract RegistryBase is IRegistry, OwnableBase
         emit ConnectorRemoved(msg.sender, name);
     }
 
-    function containsFeature(string calldata name) external view returns (bool)
-    {
-        return _features[name] != address(0);
-    }
-
     function containsTransformation(string calldata name) external view returns (bool)
     {
         return _transformations[name] != address(0);
@@ -198,10 +159,6 @@ contract RegistryBase is IRegistry, OwnableBase
     function containsConnector(string calldata name) external view returns (bool)
     {
         return _connectors[name] != address(0);
-    }
-
-    function featuresCount() external view returns (uint) {
-        return _featuresCount;
     }
 
     function transformationsCount() external view returns (uint) {

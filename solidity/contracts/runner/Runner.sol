@@ -20,6 +20,18 @@ struct Particles
     uint32[] data;
 }
 
+struct BindingSet
+{
+    uint32[] slotIds;
+    IConnector[] composites;
+}
+
+struct DecomposeContext
+{
+    RunningInstance[] runningInstances;
+    Particles[] outBuffer;
+}
+
 interface IRunner
 {
     function gen(string memory name, uint32 particlesCount, RunningInstance[] memory runningInstances) external view returns (Particles[] memory);
@@ -34,9 +46,9 @@ contract Runner is IRunner, OwnableBase
         _registry = IRegistry(registryAddr);
     }
 
-    function genSpace(IFeature feature, uint32 dimId, RunningInstance memory runningInstance, uint32 particlesCount) private view returns (uint32[] memory)
+    function genSpace(IConnector connector, uint32 dimId, RunningInstance memory runningInstance, uint32 particlesCount) private view returns (uint32[] memory)
     {
-        assert(dimId < feature.getDimensionsCount());
+        assert(dimId < connector.getDimensionsCount());
 
         uint32[] memory space = new uint32[](particlesCount);
 
@@ -45,15 +57,15 @@ contract Runner is IRunner, OwnableBase
         {
             space[opId] = x;
             // calculate next element in space
-            x = feature.transform(dimId, opId + runningInstance.transformShift, x);
+            x = connector.transform(dimId, opId + runningInstance.transformShift, x);
         }
 
         return space;
     }
 
-    function collectParticleSpace(IFeature feature, uint32 dimId, RunningInstance memory runningInstance, uint32[] memory particleIndexes) private view returns (uint32[] memory)
+    function collectParticleSpace(IConnector connector, uint32 dimId, RunningInstance memory runningInstance, uint32[] memory particleIndexes) private view returns (uint32[] memory)
     {   
-        assert(dimId < feature.getDimensionsCount());
+        assert(dimId < connector.getDimensionsCount());
 
         // need to generate space from 0 up to max(particleIndexes) + 1
         // we find the last index which will be collected
@@ -67,7 +79,7 @@ contract Runner is IRunner, OwnableBase
         // generate space
         uint32[] memory space;
         // because we need to collect up to this space element [max(particleIndexes)]
-        space = genSpace(feature, dimId, runningInstance, spaceSize);
+        space = genSpace(connector, dimId, runningInstance, spaceSize);
 
         // collect selected indices from space
         uint32[] memory elements = new uint32[](particleIndexes.length);
@@ -79,9 +91,112 @@ contract Runner is IRunner, OwnableBase
         return elements;
     }
 
-    function decompose(string memory path, IConnector connector, RunningInstance[] memory runningInstances, uint32 runningInstanceId, uint32[] memory indexes, uint32 dest, Particles[] memory outBuffer) view private
+    function findBoundComposite(BindingSet memory bindings, uint32 slotId) private pure returns (IConnector)
     {
-        assert(dest < outBuffer.length);
+        for(uint32 i = 0; i < bindings.slotIds.length; ++i)
+        {
+            if(bindings.slotIds[i] == slotId)
+            {
+                return bindings.composites[i];
+            }
+        }
+
+        return IConnector(address(0));
+    }
+
+    function buildChildBindings(
+        IConnector connector,
+        uint32 dimId,
+        BindingSet memory parentBindings,
+        uint32 parentOpenSlotBase,
+        uint32 childOpenSlots
+    ) private view returns (BindingSet memory childBindings, uint32 staticBoundCount)
+    {
+        uint32 childOpenSlotsInParent = 0;
+        uint32 childBindingCount = 0;
+        staticBoundCount = 0;
+
+        for(uint32 childSlotId = 0; childSlotId < childOpenSlots; ++childSlotId)
+        {
+            IConnector staticBoundComposite = connector.getBindingComposite(dimId, childSlotId);
+            if(address(staticBoundComposite) != address(0))
+            {
+                staticBoundCount += 1;
+                childBindingCount += 1;
+                continue;
+            }
+
+            IConnector forwardedComposite = findBoundComposite(
+                parentBindings,
+                parentOpenSlotBase + childOpenSlotsInParent);
+            if(address(forwardedComposite) != address(0))
+            {
+                childBindingCount += 1;
+            }
+
+            childOpenSlotsInParent += 1;
+        }
+
+        childBindings = BindingSet({
+            slotIds: new uint32[](childBindingCount),
+            composites: new IConnector[](childBindingCount)
+        });
+
+        uint32 childBindingIndex = 0;
+        childOpenSlotsInParent = 0;
+        for(uint32 childSlotId = 0; childSlotId < childOpenSlots; ++childSlotId)
+        {
+            IConnector staticBoundComposite = connector.getBindingComposite(dimId, childSlotId);
+            if(address(staticBoundComposite) != address(0))
+            {
+                childBindings.slotIds[childBindingIndex] = childSlotId;
+                childBindings.composites[childBindingIndex] = staticBoundComposite;
+                childBindingIndex += 1;
+                continue;
+            }
+
+            IConnector forwardedComposite = findBoundComposite(
+                parentBindings,
+                parentOpenSlotBase + childOpenSlotsInParent);
+            if(address(forwardedComposite) != address(0))
+            {
+                childBindings.slotIds[childBindingIndex] = childSlotId;
+                childBindings.composites[childBindingIndex] = forwardedComposite;
+                childBindingIndex += 1;
+            }
+
+            childOpenSlotsInParent += 1;
+        }
+    }
+
+    function decomposeWithoutBindings(
+        string memory path,
+        IConnector connector,
+        uint32 runningInstanceId,
+        uint32[] memory indexes,
+        uint32 dest,
+        DecomposeContext memory context
+    ) private view returns (uint32)
+    {
+        BindingSet memory emptyBindings = BindingSet({
+            slotIds: new uint32[](0),
+            composites: new IConnector[](0)
+        });
+
+        return decompose(path, connector, runningInstanceId, indexes, dest, context, emptyBindings);
+    }
+
+    function decompose(
+        string memory path,
+        IConnector connector,
+        uint32 runningInstanceId,
+        uint32[] memory indexes,
+        uint32 dest,
+        DecomposeContext memory context,
+        BindingSet memory bindings
+    ) view private returns (uint32)
+    {
+        assert(dest < context.outBuffer.length);
 
         if(connector.checkCondition() == false)
         {
@@ -90,23 +205,23 @@ contract Runner is IRunner, OwnableBase
 
         string memory basePath = string(abi.encodePacked(path, "/", connector.getName()));
 
-        IFeature rootFeature = connector.getRootFeature();
-        
-        // from which starting point should we generate actual composite feature
+        // from which starting point should we generate actual composite dimension
         RunningInstance memory runningInstance;
 
         // buffer for indexes
         uint32[] memory compositeIndexes;
-        
-        // for every composite run decompose at designated buffer index
-        for(uint32 dimId = 0; dimId < connector.getCompositesCount(); ++dimId)
+
+        uint32 openSlotId = 0;
+
+        // for every dimension run decompose at designated buffer index
+        for(uint32 dimId = 0; dimId < connector.getDimensionsCount(); ++dimId)
         {
             string memory compositePath = string(abi.encodePacked(basePath, ":", Strings.toString(dimId)));
 
             // calculate running instance values first
-            if(runningInstanceId < runningInstances.length)
+            if(runningInstanceId < context.runningInstances.length)
             {
-                runningInstance = runningInstances[runningInstanceId];
+                runningInstance = context.runningInstances[runningInstanceId];
                 // shift running instance
                 runningInstanceId += 1;
             }
@@ -117,37 +232,67 @@ contract Runner is IRunner, OwnableBase
             }
 
             // we always need to calculate elements from dimension
-            // when compound feature is present it passes it as indexes to further decompose 
+            // when compound connector is present it passes it as indexes to further decompose
             // when scalar we can fill out buffer
-            compositeIndexes = collectParticleSpace(rootFeature, dimId, runningInstance, indexes);
+            compositeIndexes = collectParticleSpace(connector, dimId, runningInstance, indexes);
 
             IConnector compositeConnector = connector.getComposite(dimId);
 
             if(address(compositeConnector) == address(0))
             {
-                assert(dest < outBuffer.length);
-                // scalar, we can fill out buffer
-                assert(compositeIndexes.length == outBuffer[dest].data.length);
+                IConnector replacement = findBoundComposite(bindings, openSlotId);
+                openSlotId += 1;
 
-                outBuffer[dest].path = compositePath;
-                outBuffer[dest].data = compositeIndexes;
-            
-                // shift buffer index
-                dest += 1;
+                if(address(replacement) == address(0))
+                {
+                    assert(dest < context.outBuffer.length);
+                    // scalar, we can fill out buffer
+                    assert(compositeIndexes.length == context.outBuffer[dest].data.length);
+
+                    context.outBuffer[dest].path = compositePath;
+                    context.outBuffer[dest].data = compositeIndexes;
+
+                    // shift buffer index
+                    dest += 1;
+                    continue;
+                }
+
+                // slot is bound to a connector, recurse into it
+                dest = decomposeWithoutBindings(
+                    compositePath,
+                    replacement,
+                    runningInstanceId,
+                    compositeIndexes,
+                    dest,
+                    context);
 
                 continue;
             }
 
+            uint32 childOpenSlots = compositeConnector.getOpenSlotsCount();
+            (BindingSet memory childBindings, uint32 staticBoundCount) = buildChildBindings(
+                connector,
+                dimId,
+                bindings,
+                openSlotId,
+                childOpenSlots);
 
-            // we are in case in which composite dimension is linked to another connector
+            // recurse into child with static + forwarded bindings
+            dest = decompose(
+                compositePath,
+                compositeConnector,
+                runningInstanceId,
+                compositeIndexes,
+                dest,
+                context,
+                childBindings);
 
-            // recursively fill out buffer range
-            // runningInstanceId already points to the next running instance because we took the current runningInstance for the parent feature
-            // our generated compositeIndexes become indexes for the child connector
-            decompose(compositePath, compositeConnector, runningInstances, runningInstanceId, compositeIndexes, dest, outBuffer);
-
-            dest += compositeConnector.getScalarsCount();
+            // from parent perspective only child slots that are not statically bound remain open
+            openSlotId += childOpenSlots - staticBoundCount;
         }
+
+        assert(openSlotId == connector.getOpenSlotsCount());
+        return dest;
     }
 
     function gen(string memory name, uint32 particlesCount, RunningInstance[] memory runningInstances) external view returns (Particles[] memory)
@@ -172,11 +317,11 @@ contract Runner is IRunner, OwnableBase
         // generate 1st el from connector
         //...
         // gen (particlesCount-1)th el from connector
-        // to generate 0th element from connector we need to specify from which starting points 
+        // to generate 0th element from connector we need to specify from which starting points
         // should it generate all of its composite connectors
         // it will give us the FIRST generated element of that particular generate call
         uint32 start = 0;
-        if(runningInstances.length > 0) 
+        if(runningInstances.length > 0)
         {
             start = runningInstances[0].startPoint;
         }
@@ -187,8 +332,13 @@ contract Runner is IRunner, OwnableBase
             indexes[i] = i + start;
         }
 
-        decompose("", connector, runningInstances, 1, indexes, 0, particlesBuffer);
-        
-        return (particlesBuffer);
+        DecomposeContext memory context = DecomposeContext({
+            runningInstances: runningInstances,
+            outBuffer: particlesBuffer
+        });
+        uint32 endDest = decomposeWithoutBindings("", connector, 1, indexes, 0, context);
+        assert(endDest == numberOfScalars);
+
+        return particlesBuffer;
     }
 }
