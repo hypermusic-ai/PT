@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity >=0.8.2 <0.9.0;
-import "./IParticle.sol";
+import "./IConnector.sol";
 
 import "../registry/IRegistry.sol";
 import "../feature/IFeature.sol";
@@ -11,13 +11,13 @@ import "../ownable/OwnableBase.sol";
 import "../error/Error.sol";
 
 
-abstract contract ParticleBase is IParticle, OwnableBase
+abstract contract ConnectorBase is IConnector, OwnableBase
 {
     IRegistry               private _registry;
     string                  private _name;
 
     IFeature                private _feature;
-    IParticle[]             private _composites;
+    IConnector[]             private _composites;
 
     uint32                  private _scalars;
 
@@ -25,7 +25,7 @@ abstract contract ParticleBase is IParticle, OwnableBase
     int32[]                 private _conditionCheckArgs;
         
     //
-    function __ParticleBase_init(address registryAddr, string memory name,
+    function __ConnectorBase_init(address registryAddr, string memory name,
         string memory featureName, uint32[] memory compositeDimIds, string[] memory compositeNames,
         string memory conditionName, int32[] memory conditionCheckArgs) internal onlyInitializing {
         assert(registryAddr != address(0));
@@ -43,42 +43,42 @@ abstract contract ParticleBase is IParticle, OwnableBase
 
         if(compositeDimIds.length != compositeNames.length)
         {
-            revert ParticleDimensionsMismatch(keccak256(bytes(name)));
+            revert ConnectorDimensionsMismatch(keccak256(bytes(name)));
         }
 
         uint32 dimensionsCount = _feature.getDimensionsCount();
 
         // allocate memory for composites
-        _composites = new IParticle[](dimensionsCount);
+        _composites = new IConnector[](dimensionsCount);
 
         _scalars = dimensionsCount;
 
-        // find sub particles
+        // find sub connectors
         for(uint32 i = 0; i < compositeNames.length; ++i)
         {
             uint32 dimId = compositeDimIds[i];
             if(dimId >= dimensionsCount)
             {
-                revert ParticleDimensionsMismatch(keccak256(bytes(name)));
+                revert ConnectorDimensionsMismatch(keccak256(bytes(name)));
             }
 
             if(address(_composites[dimId]) != address(0))
             {
-                revert ParticleDimensionsMismatch(keccak256(bytes(name)));
+                revert ConnectorDimensionsMismatch(keccak256(bytes(name)));
             }
 
             if(bytes(compositeNames[i]).length == 0)
             {
-                revert ParticleDimensionsMismatch(keccak256(bytes(name)));
+                revert ConnectorDimensionsMismatch(keccak256(bytes(name)));
             }
 
             // this will be the composite path
-            if(_registry.containsParticle(compositeNames[i]) == false)
+            if(_registry.containsConnector(compositeNames[i]) == false)
             {
-                revert ParticleMissing(keccak256(bytes(compositeNames[i])));
+                revert ConnectorMissing(keccak256(bytes(compositeNames[i])));
             }
 
-            IParticle composite = _registry.getParticle(compositeNames[i]);
+            IConnector composite = _registry.getConnector(compositeNames[i]);
             _composites[dimId] = composite;
 
             _scalars += composite.getScalarsCount();
@@ -108,7 +108,7 @@ abstract contract ParticleBase is IParticle, OwnableBase
         // set name
         _name = name;
 
-        IRegistry.ParticleRegistration memory registration = IRegistry.ParticleRegistration({
+        IRegistry.ConnectorRegistration memory registration = IRegistry.ConnectorRegistration({
             owner: msg.sender,
             featureName: featureName,
             compositeDimIds: compositeDimIds,
@@ -117,8 +117,8 @@ abstract contract ParticleBase is IParticle, OwnableBase
             conditionArgs: conditionCheckArgs
         });
 
-        // register particle
-        _registry.registerParticle(
+        // register connector
+        _registry.registerConnector(
             _name,
             this,
             registration
@@ -150,7 +150,7 @@ abstract contract ParticleBase is IParticle, OwnableBase
     }
 
     //
-    function getComposite(uint32 dimId) external view returns (IParticle)
+    function getComposite(uint32 dimId) external view returns (IConnector)
     {
         require(dimId < _composites.length, "composite dimension Id out of range");
         return _composites[dimId];
