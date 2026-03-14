@@ -194,6 +194,7 @@ abstract contract ConnectorBase is IConnector, OwnableConstructorBase
             _bindingSlotIds[dimId].push(slotId);
             _bindingComposites[dimId].push(bindingComposite);
 
+            _openSlots += bindingComposite.getOpenSlotsCount();
             assert(_openSlots > 0);
             _openSlots -= 1;
 
