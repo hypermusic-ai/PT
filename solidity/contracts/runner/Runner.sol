@@ -20,10 +20,16 @@ struct Particles
     uint32[] data;
 }
 
+struct Binding
+{
+    uint32 slotId;
+    IConnector composite;
+    Binding[] forwarded;
+}
+
 struct BindingSet
 {
-    uint32[] slotIds;
-    IConnector[] composites;
+    Binding[] entries;
 }
 
 struct DecomposeContext
@@ -91,17 +97,64 @@ contract Runner is IRunner, OwnableBase
         return elements;
     }
 
-    function findBoundComposite(BindingSet memory bindings, uint32 slotId) private pure returns (IConnector)
+    function findBoundBinding(BindingSet memory bindings, uint32 slotId) private pure returns (bool found, Binding memory binding)
     {
-        for(uint32 i = 0; i < bindings.slotIds.length; ++i)
+        for(uint32 i = 0; i < bindings.entries.length; ++i)
         {
-            if(bindings.slotIds[i] == slotId)
+            if(bindings.entries[i].slotId == slotId)
             {
-                return bindings.composites[i];
+                return (true, bindings.entries[i]);
             }
         }
 
-        return IConnector(address(0));
+        Binding memory emptyBinding;
+        return (false, emptyBinding);
+    }
+
+    function findProjectedChildSlot(
+        uint32 localSlotId,
+        uint32[] memory projectedStarts,
+        uint32[] memory projectedWidths,
+        uint32[] memory projectedChildSlotIds,
+        uint32 projectedCount
+    ) private pure returns (bool found, uint32 childSlotId, uint32 rangeStart)
+    {
+        if(projectedCount == 0)
+        {
+            return (false, 0, 0);
+        }
+
+        // Binary search for right-most projected start <= localSlotId.
+        uint32 low = 0;
+        uint32 high = projectedCount;
+        while(low < high)
+        {
+            uint32 mid = low + (high - low) / 2;
+            if(projectedStarts[mid] <= localSlotId)
+            {
+                low = mid + 1;
+            }
+            else
+            {
+                high = mid;
+            }
+        }
+
+        if(low == 0)
+        {
+            return (false, 0, 0);
+        }
+
+        uint32 projectedIndex = low - 1;
+        uint32 start = projectedStarts[projectedIndex];
+        uint32 width = projectedWidths[projectedIndex];
+        uint32 endExclusive = start + width;
+        if(localSlotId < start || localSlotId >= endExclusive)
+        {
+            return (false, 0, 0);
+        }
+
+        return (true, projectedChildSlotIds[projectedIndex], start);
     }
 
     function buildChildBindings(
@@ -110,63 +163,195 @@ contract Runner is IRunner, OwnableBase
         BindingSet memory parentBindings,
         uint32 parentOpenSlotBase,
         uint32 childOpenSlots
-    ) private view returns (BindingSet memory childBindings, uint32 staticBoundCount)
+    ) private view returns (BindingSet memory childBindings, uint32 parentOpenSlotsConsumed)
     {
+        // Parent-visible slot span contributed by this child after applying
+        // this connector's static bindings at this dimension.
         uint32 childOpenSlotsInParent = 0;
-        uint32 childBindingCount = 0;
-        staticBoundCount = 0;
+
+        // Child slot bindings selected at this level (static defaults + forwarded exact hits).
+        IConnector[] memory slotSelectedComposites = new IConnector[](childOpenSlots);
+        IConnector[] memory slotStaticComposites = new IConnector[](childOpenSlots);
+
+        // Forwarded bindings attached to an unbound slot replacement.
+        Binding[][] memory unboundReplacementForwarded = new Binding[][](childOpenSlots);
+
+        // Only non-empty projected ranges are included here.
+        // Arrays are sorted by projectedStarts and used for binary search lookup.
+        uint32[] memory projectedChildSlotIds = new uint32[](childOpenSlots);
+        uint32[] memory projectedStarts = new uint32[](childOpenSlots);
+        uint32[] memory projectedWidths = new uint32[](childOpenSlots);
+        uint32 projectedCount = 0;
 
         for(uint32 childSlotId = 0; childSlotId < childOpenSlots; ++childSlotId)
         {
+            uint32 slotProjectedStart = childOpenSlotsInParent;
+
             IConnector staticBoundComposite = connector.getBindingComposite(dimId, childSlotId);
             if(address(staticBoundComposite) != address(0))
             {
-                staticBoundCount += 1;
-                childBindingCount += 1;
+                slotStaticComposites[childSlotId] = staticBoundComposite;
+                slotSelectedComposites[childSlotId] = staticBoundComposite;
+
+                uint32 staticSlots = staticBoundComposite.getOpenSlotsCount();
+                if(staticSlots > 0)
+                {
+                    projectedChildSlotIds[projectedCount] = childSlotId;
+                    projectedStarts[projectedCount] = slotProjectedStart;
+                    projectedWidths[projectedCount] = staticSlots;
+                    projectedCount += 1;
+                }
+                childOpenSlotsInParent += staticSlots;
                 continue;
             }
 
-            IConnector forwardedComposite = findBoundComposite(
-                parentBindings,
-                parentOpenSlotBase + childOpenSlotsInParent);
-            if(address(forwardedComposite) != address(0))
+            projectedChildSlotIds[projectedCount] = childSlotId;
+            projectedStarts[projectedCount] = slotProjectedStart;
+            projectedWidths[projectedCount] = 1;
+            projectedCount += 1;
+            childOpenSlotsInParent += 1;
+        }
+
+        // Count forwarded bindings per static slot to allocate exact-sized arrays.
+        uint32[] memory slotForwardedCounts = new uint32[](childOpenSlots);
+
+        // DFS mapping:
+        // - exact hit on unbound point binds that child slot directly
+        // - hit inside static range is rebased into that static slot's forwarded bindings
+        for(uint32 i = 0; i < parentBindings.entries.length; ++i)
+        {
+            Binding memory parentBinding = parentBindings.entries[i];
+            uint32 parentSlotId = parentBinding.slotId;
+            if(parentSlotId < parentOpenSlotBase)
+            {
+                continue;
+            }
+
+            uint32 localSlotId = parentSlotId - parentOpenSlotBase;
+            if(localSlotId >= childOpenSlotsInParent)
+            {
+                continue;
+            }
+
+            (bool found, uint32 childSlotId, ) = findProjectedChildSlot(
+                localSlotId,
+                projectedStarts,
+                projectedWidths,
+                projectedChildSlotIds,
+                projectedCount);
+            if(found == false)
+            {
+                continue;
+            }
+
+            IConnector staticComposite = slotStaticComposites[childSlotId];
+            if(address(staticComposite) == address(0))
+            {
+                // Unbound projected point: direct slot binding.
+                // Preserve first assignment to keep consistency with
+                // findBoundBinding (first match wins).
+                if(address(slotSelectedComposites[childSlotId]) == address(0))
+                {
+                    slotSelectedComposites[childSlotId] = parentBinding.composite;
+                    unboundReplacementForwarded[childSlotId] = parentBinding.forwarded;
+                }
+                continue;
+            }
+
+            // Static projected range: bind inside static composite by local DFS offset.
+            slotForwardedCounts[childSlotId] += 1;
+        }
+
+        // Allocate exact-sized forwarded arrays only for static slots.
+        Binding[][] memory slotForwardedTemp = new Binding[][](childOpenSlots);
+        for(uint32 childSlotId = 0; childSlotId < childOpenSlots; ++childSlotId)
+        {
+            if(address(slotStaticComposites[childSlotId]) == address(0))
+            {
+                continue;
+            }
+
+            slotForwardedTemp[childSlotId] = new Binding[](slotForwardedCounts[childSlotId]);
+        }
+
+        // Fill forwarded arrays in a second pass, preserving parent binding order.
+        uint32[] memory slotForwardedWriteIndices = new uint32[](childOpenSlots);
+        for(uint32 i = 0; i < parentBindings.entries.length; ++i)
+        {
+            Binding memory parentBinding = parentBindings.entries[i];
+            uint32 parentSlotId = parentBinding.slotId;
+            if(parentSlotId < parentOpenSlotBase)
+            {
+                continue;
+            }
+
+            uint32 localSlotId = parentSlotId - parentOpenSlotBase;
+            if(localSlotId >= childOpenSlotsInParent)
+            {
+                continue;
+            }
+
+            (bool found, uint32 childSlotId, uint32 rangeStart) = findProjectedChildSlot(
+                localSlotId,
+                projectedStarts,
+                projectedWidths,
+                projectedChildSlotIds,
+                projectedCount);
+            if(found == false || address(slotStaticComposites[childSlotId]) == address(0))
+            {
+                continue;
+            }
+
+            uint32 writeIndex = slotForwardedWriteIndices[childSlotId];
+            slotForwardedTemp[childSlotId][writeIndex] = Binding({
+                slotId: localSlotId - rangeStart,
+                composite: parentBinding.composite,
+                forwarded: parentBinding.forwarded
+            });
+            slotForwardedWriteIndices[childSlotId] = writeIndex + 1;
+        }
+
+        uint32 childBindingCount = 0;
+        for(uint32 childSlotId = 0; childSlotId < childOpenSlots; ++childSlotId)
+        {
+            if(address(slotSelectedComposites[childSlotId]) != address(0))
             {
                 childBindingCount += 1;
             }
-
-            childOpenSlotsInParent += 1;
         }
 
         childBindings = BindingSet({
-            slotIds: new uint32[](childBindingCount),
-            composites: new IConnector[](childBindingCount)
+            entries: new Binding[](childBindingCount)
         });
 
         uint32 childBindingIndex = 0;
-        childOpenSlotsInParent = 0;
         for(uint32 childSlotId = 0; childSlotId < childOpenSlots; ++childSlotId)
         {
-            IConnector staticBoundComposite = connector.getBindingComposite(dimId, childSlotId);
-            if(address(staticBoundComposite) != address(0))
+            IConnector selectedComposite = slotSelectedComposites[childSlotId];
+            if(address(selectedComposite) == address(0))
             {
-                childBindings.slotIds[childBindingIndex] = childSlotId;
-                childBindings.composites[childBindingIndex] = staticBoundComposite;
-                childBindingIndex += 1;
                 continue;
             }
 
-            IConnector forwardedComposite = findBoundComposite(
-                parentBindings,
-                parentOpenSlotBase + childOpenSlotsInParent);
-            if(address(forwardedComposite) != address(0))
+            Binding[] memory forwardedBindings;
+            if(address(slotStaticComposites[childSlotId]) != address(0))
             {
-                childBindings.slotIds[childBindingIndex] = childSlotId;
-                childBindings.composites[childBindingIndex] = forwardedComposite;
-                childBindingIndex += 1;
+                forwardedBindings = slotForwardedTemp[childSlotId];
+            }
+            else
+            {
+                forwardedBindings = unboundReplacementForwarded[childSlotId];
             }
 
-            childOpenSlotsInParent += 1;
+            childBindings.entries[childBindingIndex] = Binding({
+                slotId: childSlotId,
+                composite: selectedComposite,
+                forwarded: forwardedBindings
+            });
+            childBindingIndex += 1;
         }
+
+        parentOpenSlotsConsumed = childOpenSlotsInParent;
     }
 
     function decomposeWithoutBindings(
@@ -179,8 +364,7 @@ contract Runner is IRunner, OwnableBase
     ) private view returns (uint32)
     {
         BindingSet memory emptyBindings = BindingSet({
-            slotIds: new uint32[](0),
-            composites: new IConnector[](0)
+            entries: new Binding[](0)
         });
 
         return decompose(path, connector, runningInstanceId, indexes, dest, context, emptyBindings);
@@ -240,10 +424,10 @@ contract Runner is IRunner, OwnableBase
 
             if(address(compositeConnector) == address(0))
             {
-                IConnector replacement = findBoundComposite(bindings, openSlotId);
+                (bool isBound, Binding memory boundBinding) = findBoundBinding(bindings, openSlotId);
                 openSlotId += 1;
 
-                if(address(replacement) == address(0))
+                if(isBound == false)
                 {
                     assert(dest < context.outBuffer.length);
                     // scalar, we can fill out buffer
@@ -257,20 +441,25 @@ contract Runner is IRunner, OwnableBase
                     continue;
                 }
 
-                // slot is bound to a connector, recurse into it
-                dest = decomposeWithoutBindings(
+                // Slot is bound to a connector. Recurse with bindings forwarded
+                // specifically to this replacement.
+                BindingSet memory replacementBindings = BindingSet({
+                    entries: boundBinding.forwarded
+                });
+                dest = decompose(
                     compositePath,
-                    replacement,
+                    boundBinding.composite,
                     runningInstanceId,
                     compositeIndexes,
                     dest,
-                    context);
+                    context,
+                    replacementBindings);
 
                 continue;
             }
 
             uint32 childOpenSlots = compositeConnector.getOpenSlotsCount();
-            (BindingSet memory childBindings, uint32 staticBoundCount) = buildChildBindings(
+            (BindingSet memory childBindings, uint32 childOpenSlotsConsumed) = buildChildBindings(
                 connector,
                 dimId,
                 bindings,
@@ -287,8 +476,8 @@ contract Runner is IRunner, OwnableBase
                 context,
                 childBindings);
 
-            // from parent perspective only child slots that are not statically bound remain open
-            openSlotId += childOpenSlots - staticBoundCount;
+            // from parent perspective child contributes all open slots after static bindings are applied
+            openSlotId += childOpenSlotsConsumed;
         }
 
         assert(openSlotId == connector.getOpenSlotsCount());
