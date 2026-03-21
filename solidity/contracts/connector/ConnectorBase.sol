@@ -9,6 +9,7 @@ import "../condition/ICondition.sol";
 
 import "../ownable/OwnableConstructorBase.sol";
 import "../error/Error.sol";
+import "../utils/FormatHashLib.sol";
 
 abstract contract ConnectorBase is IConnector, OwnableConstructorBase
 {
@@ -24,6 +25,8 @@ abstract contract ConnectorBase is IConnector, OwnableConstructorBase
 
     uint32                   private _scalars;
     uint32                   private _openSlots;
+    bytes32[]                private _scalarHashes;
+    bytes32                  private _formatHash;
 
     ICondition               private _condition;
     int32[]                  private _conditionCheckArgs;
@@ -220,6 +223,76 @@ abstract contract ConnectorBase is IConnector, OwnableConstructorBase
             _conditionCheckArgs = conditionCheckArgs;
         }
 
+
+        // Calculating format hash as a multiset of merged scalar hashes.
+        // Tail-only rule: path prefixes are ignored.
+        _scalarHashes = new bytes32[](_scalars);
+        // Accumulate in a local variable and commit once to storage at the end.
+        bytes32 formatHash = bytes32(0);
+
+        uint32 scalarHashId = 0;
+        bytes32 localScalarHash = keccak256(bytes(_name));
+        for(uint32 dimId = 0; dimId < dimensionsCount; ++dimId)
+        {
+            bytes32 dimPathHash = FormatHashLib.dimPathHash(dimId);
+            IConnector composite = _composites[dimId];
+            if(address(composite) == address(0))
+            {
+                // Case 1: local leaf dimension (no composite).
+                // Produced label = H(local scalar kind, local tail path).
+                bytes32 labelHash = FormatHashLib.scalarPathLabelHash(localScalarHash, dimPathHash);
+
+                _scalarHashes[scalarHashId] = labelHash;
+                scalarHashId += 1;
+                formatHash = FormatHashLib.compose(formatHash, FormatHashLib.labelHashToFormatHash(labelHash));
+                continue;
+            }
+
+            uint32 childOpenSlots = composite.getOpenSlotsCount();
+            uint32 childScalars = composite.getScalarsCount();
+            require(childOpenSlots == childScalars, "child scalars/open slots mismatch");
+
+            for(uint32 childSlotId = 0; childSlotId < childOpenSlots; ++childSlotId)
+            {
+                // getScalarHash now returns merged label hash.
+                bytes32 childLabelHash = composite.getScalarHash(childSlotId);
+
+                IConnector bindingComposite = _findBindingComposite(dimId, childSlotId);
+                if(address(bindingComposite) == address(0))
+                {
+                    // Case 2: composite slot without binding.
+                    // Tail-only rule: parent prefix is ignored, so child label is reused.
+                    _scalarHashes[scalarHashId] = childLabelHash;
+                    scalarHashId += 1;
+                    formatHash = FormatHashLib.compose(
+                        formatHash,
+                        FormatHashLib.labelHashToFormatHash(childLabelHash));
+                    continue;
+                }
+
+                // Case 3: composite slot with binding.
+                // Replace this child slot by the bound subtree.
+                // Tail-only rule: parent and slot prefixes are ignored.
+                uint32 bindingScalars = bindingComposite.getScalarsCount();
+                uint32 bindingOpenSlots = bindingComposite.getOpenSlotsCount();
+                require(bindingScalars == bindingOpenSlots, "binding scalars/open slots mismatch");
+                for(uint32 bindingScalarId = 0; bindingScalarId < bindingScalars; ++bindingScalarId)
+                {
+                    bytes32 bindingLabelHash = bindingComposite.getScalarHash(bindingScalarId);
+
+                    _scalarHashes[scalarHashId] = bindingLabelHash;
+                    scalarHashId += 1;
+
+                    formatHash = FormatHashLib.compose(
+                        formatHash,
+                        FormatHashLib.labelHashToFormatHash(bindingLabelHash));
+                }
+            }
+        }
+
+        require(scalarHashId == _scalars, "invalid scalar hashes");
+        _formatHash = formatHash;
+
         IRegistry.ConnectorRegistration memory registration = IRegistry.ConnectorRegistration({
             owner: msg.sender,
             dimensionsCount: dimensionsCount,
@@ -229,7 +302,8 @@ abstract contract ConnectorBase is IConnector, OwnableConstructorBase
             bindingSlotIds: bindingSlotIds,
             bindingNames: bindingNames,
             conditionName: conditionName,
-            conditionArgs: conditionCheckArgs
+            conditionArgs: conditionCheckArgs,
+            formatHash: _formatHash
         });
 
         _registry.registerConnector(_name, this, registration);
@@ -244,6 +318,18 @@ abstract contract ConnectorBase is IConnector, OwnableConstructorBase
     function getScalarsCount() external view returns (uint32)
     {
         return _scalars;
+    }
+
+    // Returns merged scalar label hash H(scalar-kind-hash, tail-path-hash).
+    function getScalarHash(uint32 scalarId) external view returns (bytes32)
+    {
+        require(scalarId < _scalarHashes.length, "scalar id out of range");
+        return _scalarHashes[scalarId];
+    }
+
+    function getFormatHash() external view returns (bytes32)
+    {
+        return _formatHash;
     }
 
     function getOpenSlotsCount() external view returns (uint32)

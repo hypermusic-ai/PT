@@ -11,6 +11,8 @@ interface IConnector is IOwnable
     function getName() external view returns(string memory);
     
     function getScalarsCount() external view returns (uint32);
+    function getScalarHash(uint32 scalarId) external view returns (bytes32);
+    function getFormatHash() external view returns (bytes32);
     function getOpenSlotsCount() external view returns (uint32);
 
     function getDimensionsCount() external view returns (uint32);

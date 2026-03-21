@@ -27,6 +27,7 @@ interface IRegistry
         string[] bindingNames;
         string conditionName;
         int32[] conditionArgs;
+        bytes32 formatHash;
     }
 
     event TransformationAdded(address caller, string name, address transformationAddr, address owner, uint32 argsCount);
@@ -43,7 +44,8 @@ interface IRegistry
         uint32[] bindingSlotIds,
         string[] bindingNames,
         string conditionName,
-        int32[] conditionArgs
+        int32[] conditionArgs,
+        bytes32 formatHash
     );
 
     event TransformationRemoved(address caller, string name);
@@ -77,6 +79,9 @@ interface IRegistry
     function containsTransformation(string calldata name) external view returns (bool);
     function containsCondition(string calldata name) external view returns (bool);
     function containsConnector(string calldata name) external view returns (bool);
+
+    function formatConnectorsCount(bytes32 formatHash) external view returns (uint256);
+    function getFormatConnector(bytes32 formatHash, uint256 index) external view returns (IConnector);
 
     function transformationsCount() external view returns (uint);
     function conditionsCount() external view returns (uint);
