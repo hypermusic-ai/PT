@@ -224,11 +224,10 @@ abstract contract ConnectorBase is IConnector, OwnableConstructorBase
         }
 
 
-        // Calculating format hash as a multiset of merged scalar hashes.
+        // Calculating format hash as a set of merged scalar hashes.
+        // Duplicate labels do not affect the resulting format hash.
         // Tail-only rule: path prefixes are ignored.
         _scalarHashes = new bytes32[](_scalars);
-        // Accumulate in a local variable and commit once to storage at the end.
-        bytes32 formatHash = bytes32(0);
 
         uint32 scalarHashId = 0;
         bytes32 localScalarHash = keccak256(bytes(_name));
@@ -244,7 +243,6 @@ abstract contract ConnectorBase is IConnector, OwnableConstructorBase
 
                 _scalarHashes[scalarHashId] = labelHash;
                 scalarHashId += 1;
-                formatHash = FormatHashLib.compose(formatHash, FormatHashLib.labelHashToFormatHash(labelHash));
                 continue;
             }
 
@@ -264,9 +262,6 @@ abstract contract ConnectorBase is IConnector, OwnableConstructorBase
                     // Tail-only rule: parent prefix is ignored, so child label is reused.
                     _scalarHashes[scalarHashId] = childLabelHash;
                     scalarHashId += 1;
-                    formatHash = FormatHashLib.compose(
-                        formatHash,
-                        FormatHashLib.labelHashToFormatHash(childLabelHash));
                     continue;
                 }
 
@@ -282,16 +277,12 @@ abstract contract ConnectorBase is IConnector, OwnableConstructorBase
 
                     _scalarHashes[scalarHashId] = bindingLabelHash;
                     scalarHashId += 1;
-
-                    formatHash = FormatHashLib.compose(
-                        formatHash,
-                        FormatHashLib.labelHashToFormatHash(bindingLabelHash));
                 }
             }
         }
 
         require(scalarHashId == _scalars, "invalid scalar hashes");
-        _formatHash = formatHash;
+        _formatHash = FormatHashLib.computeFormatHash(_scalarHashes);
 
         IRegistry.ConnectorRegistration memory registration = IRegistry.ConnectorRegistration({
             owner: msg.sender,

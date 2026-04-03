@@ -80,13 +80,28 @@ library FormatHashLib
         return _packLanes(lane0, lane1, lane2, lane3);
     }
 
-    // Computes order-independent multiset hash from merged scalar label hashes.
-    // Multiplicity is preserved by repeated compose operations.
+    // Computes order-independent set hash from merged scalar label hashes.
+    // Duplicate labels are ignored.
     function computeFormatHash(bytes32[] memory scalarLabelHashes) internal pure returns (bytes32)
     {
         bytes32 formatHash = bytes32(0);
         for(uint256 i = 0; i < scalarLabelHashes.length; ++i)
         {
+            bool seen = false;
+            for(uint256 j = 0; j < i; ++j)
+            {
+                if(scalarLabelHashes[j] == scalarLabelHashes[i])
+                {
+                    seen = true;
+                    break;
+                }
+            }
+
+            if(seen)
+            {
+                continue;
+            }
+
             formatHash = compose(formatHash, labelHashToFormatHash(scalarLabelHashes[i]));
         }
 
