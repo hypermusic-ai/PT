@@ -16,3 +16,6 @@ error ConnectorDimensionsMismatch(bytes32 name);
 error RegistryError(uint32 code);
 
 error ConditionNotMet(bytes32 name);
+error RunningInstanceDuplicate(uint32 position);
+error RunningInstanceNotSorted(uint32 previousPosition, uint32 position);
+error RunningInstanceStaticOverride(uint32 position);

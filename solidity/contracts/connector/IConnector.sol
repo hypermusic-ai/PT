@@ -21,6 +21,7 @@ interface IConnector is IOwnable
     function getCompositesCount() external view returns (uint32);
     function getComposite(uint32 dimId) external view returns (IConnector);
     function getBindingComposite(uint32 dimId, uint32 slotId) external view returns (IConnector);
+    function getStaticRunningInstance(uint32 localPosId) external view returns (bool hasValue, uint32 startPoint, uint32 transformShift);
 
     function getCondition() external view returns (ICondition);
     function getConditionArgs() external view returns (int32[] memory);

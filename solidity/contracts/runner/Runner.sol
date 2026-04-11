@@ -5,11 +5,12 @@ import "../connector/IConnector.sol";
 import "../registry/IRegistry.sol";
 import "../error/Error.sol";
 import "../ownable/OwnableBase.sol";
+import "../types/RunningInstance.sol";
 
 import "@openzeppelin/contracts/utils/Strings.sol";
 
-
-struct RunningInstance {
+struct PositionedRunningInstance {
+    uint32 position;
     uint32 startPoint;
     uint32 transformShift;
 }
@@ -34,13 +35,22 @@ struct BindingSet
 
 struct DecomposeContext
 {
-    RunningInstance[] runningInstances;
+    PositionedRunningInstance[] dynamicRi;
+    uint32 dynamicRiIndex;
     Particles[] outBuffer;
+    IConnector staticScopeConnector;
+    uint32 staticScopeStartPositionId;
+}
+
+struct DecomposeResult
+{
+    uint32 dest;
+    uint32 nextPositionId;
 }
 
 interface IRunner
 {
-    function gen(string memory name, uint32 particlesCount, RunningInstance[] memory runningInstances) external view returns (Particles[] memory);
+    function gen(string memory name, uint32 particlesCount, PositionedRunningInstance[] memory dynamicRi) external view returns (Particles[] memory);
 }
 
 contract Runner is IRunner, OwnableBase
@@ -95,6 +105,137 @@ contract Runner is IRunner, OwnableBase
         }
 
         return elements;
+    }
+
+    function resolveDynamicRunningInstance(
+        PositionedRunningInstance[] memory dynamicRi,
+        uint32 position,
+        uint32 dynamicRiIndex
+    ) private pure returns (bool found, RunningInstance memory runningInstance, uint32 nextDynamicRiIndex)
+    {
+        uint32 i = dynamicRiIndex;
+        while(i < dynamicRi.length && dynamicRi[i].position < position)
+        {
+            i += 1;
+        }
+
+        if(i < dynamicRi.length && dynamicRi[i].position == position)
+        {
+            RunningInstance memory resolved = RunningInstance({
+                startPoint: dynamicRi[i].startPoint,
+                transformShift: dynamicRi[i].transformShift
+            });
+            return (true, resolved, i + 1);
+        }
+
+        RunningInstance memory emptyRunningInstance;
+        return (false, emptyRunningInstance, i);
+    }
+
+    function resolveRootRunningInstance(
+        IConnector connector,
+        PositionedRunningInstance[] memory dynamicRi,
+        uint32 dynamicRiIndex
+    ) private view returns (RunningInstance memory runningInstance, uint32 nextDynamicRiIndex)
+    {
+        (bool hasDynamic, RunningInstance memory dynamicRunningInstance, uint32 resolvedDynamicRiIndex) = resolveDynamicRunningInstance(dynamicRi, 0, dynamicRiIndex);
+        (bool hasStatic, uint32 staticStartPoint, uint32 staticTransformShift) = connector.getStaticRunningInstance(0);
+
+        if(hasDynamic && hasStatic)
+        {
+            revert RunningInstanceStaticOverride(0);
+        }
+
+        if(hasDynamic)
+        {
+            return (dynamicRunningInstance, resolvedDynamicRiIndex);
+        }
+
+        if(hasStatic)
+        {
+            return (RunningInstance({
+                startPoint: staticStartPoint,
+                transformShift: staticTransformShift
+            }), resolvedDynamicRiIndex);
+        }
+
+        runningInstance.startPoint = 0;
+        runningInstance.transformShift = 0;
+        return (runningInstance, resolvedDynamicRiIndex);
+    }
+
+    function resolveDimensionRunningInstance(
+        IConnector connector,
+        uint32 dimId,
+        uint32 positionId,
+        DecomposeContext memory context,
+        IConnector fallbackCompositeConnector
+    ) private view returns (RunningInstance memory runningInstance)
+    {
+        (bool hasDynamic, RunningInstance memory dynamicRunningInstance, uint32 resolvedDynamicRiIndex) = resolveDynamicRunningInstance(
+            context.dynamicRi,
+            positionId,
+            context.dynamicRiIndex
+        );
+        context.dynamicRiIndex = resolvedDynamicRiIndex;
+        IConnector staticScopeConnector = context.staticScopeConnector;
+        assert(positionId >= context.staticScopeStartPositionId);
+        uint32 staticScopePositionId = positionId - context.staticScopeStartPositionId + 1;
+        bool isStaticScopeRoot = address(staticScopeConnector) == address(connector);
+        (bool hasStaticLocal, uint32 staticStartPoint, uint32 staticTransformShift) = isStaticScopeRoot
+            ? connector.getStaticRunningInstance(staticScopePositionId)
+            : connector.getStaticRunningInstance(dimId + 1);
+
+        bool hasStaticScope = false;
+        uint32 staticScopeStartPoint = 0;
+        uint32 staticScopeTransformShift = 0;
+        if(isStaticScopeRoot == false)
+        {
+            (hasStaticScope, staticScopeStartPoint, staticScopeTransformShift) =
+                staticScopeConnector.getStaticRunningInstance(staticScopePositionId);
+        }
+
+        if(hasDynamic && (hasStaticLocal || hasStaticScope))
+        {
+            revert RunningInstanceStaticOverride(positionId);
+        }
+
+        if(hasDynamic)
+        {
+            return dynamicRunningInstance;
+        }
+
+        if(hasStaticLocal)
+        {
+            return RunningInstance({
+                startPoint: staticStartPoint,
+                transformShift: staticTransformShift
+            });
+        }
+
+        if(hasStaticScope)
+        {
+            return RunningInstance({
+                startPoint: staticScopeStartPoint,
+                transformShift: staticScopeTransformShift
+            });
+        }
+
+        if(address(fallbackCompositeConnector) != address(0))
+        {
+            (bool hasChildRoot, uint32 childRootStartPoint, uint32 childRootTransformShift) = fallbackCompositeConnector.getStaticRunningInstance(0);
+            if(hasChildRoot)
+            {
+                return RunningInstance({
+                    startPoint: childRootStartPoint,
+                    transformShift: childRootTransformShift
+                });
+            }
+        }
+
+        runningInstance.startPoint = 0;
+        runningInstance.transformShift = 0;
+        return runningInstance;
     }
 
     function findBoundBinding(BindingSet memory bindings, uint32 slotId) private pure returns (bool found, Binding memory binding)
@@ -357,28 +498,35 @@ contract Runner is IRunner, OwnableBase
     function decomposeWithoutBindings(
         string memory path,
         IConnector connector,
-        uint32 runningInstanceId,
+        uint32 runningInstancePositionId,
         uint32[] memory indexes,
         uint32 dest,
         DecomposeContext memory context
-    ) private view returns (uint32)
+    ) private view returns (DecomposeResult memory)
     {
         BindingSet memory emptyBindings = BindingSet({
             entries: new Binding[](0)
         });
 
-        return decompose(path, connector, runningInstanceId, indexes, dest, context, emptyBindings);
+        return decompose(
+            path,
+            connector,
+            runningInstancePositionId,
+            indexes,
+            dest,
+            context,
+            emptyBindings);
     }
 
     function decompose(
         string memory path,
         IConnector connector,
-        uint32 runningInstanceId,
+        uint32 runningInstancePositionId,
         uint32[] memory indexes,
         uint32 dest,
         DecomposeContext memory context,
         BindingSet memory bindings
-    ) view private returns (uint32)
+    ) view private returns (DecomposeResult memory)
     {
         assert(dest < context.outBuffer.length);
 
@@ -402,29 +550,37 @@ contract Runner is IRunner, OwnableBase
         {
             string memory compositePath = string(abi.encodePacked(basePath, ":", Strings.toString(dimId)));
 
-            // calculate running instance values first
-            if(runningInstanceId < context.runningInstances.length)
+            IConnector directCompositeConnector = connector.getComposite(dimId);
+            bool isBound = false;
+            Binding memory boundBinding;
+            IConnector fallbackCompositeConnector = directCompositeConnector;
+            if(address(directCompositeConnector) == address(0))
             {
-                runningInstance = context.runningInstances[runningInstanceId];
-                // shift running instance
-                runningInstanceId += 1;
+                // Scalar slot may be replaced by a bound connector.
+                // Use that effective connector for static child-root RI fallback.
+                (isBound, boundBinding) = findBoundBinding(bindings, openSlotId);
+                if(isBound)
+                {
+                    fallbackCompositeConnector = boundBinding.composite;
+                }
             }
-            else
-            {
-                runningInstance.startPoint = 0;
-                runningInstance.transformShift = 0;
-            }
+
+            uint32 positionId = runningInstancePositionId;
+            runningInstancePositionId += 1;
+            runningInstance = resolveDimensionRunningInstance(
+                connector,
+                dimId,
+                positionId,
+                context,
+                fallbackCompositeConnector);
 
             // we always need to calculate elements from dimension
             // when compound connector is present it passes it as indexes to further decompose
             // when scalar we can fill out buffer
             compositeIndexes = collectParticleSpace(connector, dimId, runningInstance, indexes);
 
-            IConnector compositeConnector = connector.getComposite(dimId);
-
-            if(address(compositeConnector) == address(0))
+            if(address(directCompositeConnector) == address(0))
             {
-                (bool isBound, Binding memory boundBinding) = findBoundBinding(bindings, openSlotId);
                 openSlotId += 1;
 
                 if(isBound == false)
@@ -446,19 +602,21 @@ contract Runner is IRunner, OwnableBase
                 BindingSet memory replacementBindings = BindingSet({
                     entries: boundBinding.forwarded
                 });
-                dest = decompose(
+                DecomposeResult memory replacementResult = decompose(
                     compositePath,
                     boundBinding.composite,
-                    runningInstanceId,
+                    runningInstancePositionId,
                     compositeIndexes,
                     dest,
                     context,
                     replacementBindings);
+                dest = replacementResult.dest;
+                runningInstancePositionId = replacementResult.nextPositionId;
 
                 continue;
             }
 
-            uint32 childOpenSlots = compositeConnector.getOpenSlotsCount();
+            uint32 childOpenSlots = directCompositeConnector.getOpenSlotsCount();
             (BindingSet memory childBindings, uint32 childOpenSlotsConsumed) = buildChildBindings(
                 connector,
                 dimId,
@@ -467,27 +625,46 @@ contract Runner is IRunner, OwnableBase
                 childOpenSlots);
 
             // recurse into child with static + forwarded bindings
-            dest = decompose(
+            DecomposeResult memory childResult = decompose(
                 compositePath,
-                compositeConnector,
-                runningInstanceId,
+                directCompositeConnector,
+                runningInstancePositionId,
                 compositeIndexes,
                 dest,
                 context,
                 childBindings);
+            dest = childResult.dest;
+            runningInstancePositionId = childResult.nextPositionId;
 
             // from parent perspective child contributes all open slots after static bindings are applied
             openSlotId += childOpenSlotsConsumed;
         }
 
         assert(openSlotId == connector.getOpenSlotsCount());
-        return dest;
+        return DecomposeResult({
+            dest: dest,
+            nextPositionId: runningInstancePositionId
+        });
     }
 
-    function gen(string memory name, uint32 particlesCount, RunningInstance[] memory runningInstances) external view returns (Particles[] memory)
+    function gen(string memory name, uint32 particlesCount, PositionedRunningInstance[] memory dynamicRi) external view returns (Particles[] memory)
     {
         require(particlesCount > 0, "number of particles must be greater than 0");
         require(_registry.containsConnector(name), "cannot find connector");
+
+        for(uint32 i = 1; i < dynamicRi.length; ++i)
+        {
+            uint32 previousPosition = dynamicRi[i - 1].position;
+            uint32 position = dynamicRi[i].position;
+            if(previousPosition == position)
+            {
+                revert RunningInstanceDuplicate(position);
+            }
+            if(previousPosition > position)
+            {
+                revert RunningInstanceNotSorted(previousPosition, position);
+            }
+        }
 
         IConnector connector = _registry.getConnector(name);
 
@@ -509,11 +686,8 @@ contract Runner is IRunner, OwnableBase
         // to generate 0th element from connector we need to specify from which starting points
         // should it generate all of its composite connectors
         // it will give us the FIRST generated element of that particular generate call
-        uint32 start = 0;
-        if(runningInstances.length > 0)
-        {
-            start = runningInstances[0].startPoint;
-        }
+        (RunningInstance memory rootRunningInstance, uint32 dynamicRiIndex) = resolveRootRunningInstance(connector, dynamicRi, 0);
+        uint32 start = rootRunningInstance.startPoint;
 
         uint32[] memory indexes = new uint32[](particlesCount);
         for(uint32 i = 0; i < particlesCount; ++i)
@@ -522,11 +696,14 @@ contract Runner is IRunner, OwnableBase
         }
 
         DecomposeContext memory context = DecomposeContext({
-            runningInstances: runningInstances,
-            outBuffer: particlesBuffer
+            dynamicRi: dynamicRi,
+            dynamicRiIndex: dynamicRiIndex,
+            outBuffer: particlesBuffer,
+            staticScopeConnector: connector,
+            staticScopeStartPositionId: 1
         });
-        uint32 endDest = decomposeWithoutBindings("", connector, 1, indexes, 0, context);
-        assert(endDest == numberOfScalars);
+        DecomposeResult memory result = decomposeWithoutBindings("", connector, 1, indexes, 0, context);
+        assert(result.dest == numberOfScalars);
 
         return particlesBuffer;
     }

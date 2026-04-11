@@ -6,6 +6,7 @@ import "./IConnector.sol";
 import "../registry/IRegistry.sol";
 import "../transformation/ITransformation.sol";
 import "../condition/ICondition.sol";
+import "../types/RunningInstance.sol";
 
 import "../ownable/OwnableConstructorBase.sol";
 import "../error/Error.sol";
@@ -22,6 +23,8 @@ abstract contract ConnectorBase is IConnector, OwnableConstructorBase
     IConnector[]             private _composites;
     uint32[][]               private _bindingSlotIds;
     IConnector[][]           private _bindingComposites;
+    mapping(uint32 => bool)  private _hasStaticRunningInstances;
+    mapping(uint32 => RunningInstance) private _staticRunningInstances;
 
     uint32                   private _scalars;
     uint32                   private _openSlots;
@@ -70,6 +73,9 @@ abstract contract ConnectorBase is IConnector, OwnableConstructorBase
         uint32[] memory bindingDimIds,
         uint32[] memory bindingSlotIds,
         string[] memory bindingNames,
+        uint32[] memory staticRiPositions,
+        uint32[] memory staticRiStartPoints,
+        uint32[] memory staticRiTransformShifts,
         string memory conditionName,
         int32[] memory conditionCheckArgs
     ) internal
@@ -106,6 +112,13 @@ abstract contract ConnectorBase is IConnector, OwnableConstructorBase
         }
 
         if(bindingDimIds.length != bindingSlotIds.length || bindingDimIds.length != bindingNames.length)
+        {
+            revert ConnectorDimensionsMismatch(keccak256(bytes(_name)));
+        }
+
+        if(
+            staticRiPositions.length != staticRiStartPoints.length ||
+            staticRiPositions.length != staticRiTransformShifts.length)
         {
             revert ConnectorDimensionsMismatch(keccak256(bytes(_name)));
         }
@@ -204,6 +217,22 @@ abstract contract ConnectorBase is IConnector, OwnableConstructorBase
             _scalars += bindingComposite.getScalarsCount();
             assert(_scalars > 0);
             _scalars -= 1;
+        }
+
+        for(uint32 i = 0; i < staticRiPositions.length; ++i)
+        {
+            uint32 localPosId = staticRiPositions[i];
+
+            if(_hasStaticRunningInstances[localPosId])
+            {
+                revert ConnectorDimensionsMismatch(keccak256(bytes(_name)));
+            }
+
+            _hasStaticRunningInstances[localPosId] = true;
+            _staticRunningInstances[localPosId] = RunningInstance({
+                startPoint: staticRiStartPoints[i],
+                transformShift: staticRiTransformShifts[i]
+            });
         }
 
         if(bytes(conditionName).length != 0)
@@ -360,6 +389,17 @@ abstract contract ConnectorBase is IConnector, OwnableConstructorBase
     {
         require(dimId < _bindingSlotIds.length, "binding dimension Id out of range");
         return _findBindingComposite(dimId, slotId);
+    }
+
+    function getStaticRunningInstance(uint32 localPosId) external view returns (bool hasValue, uint32 startPoint, uint32 transformShift)
+    {
+        if(_hasStaticRunningInstances[localPosId] == false)
+        {
+            return (false, 0, 0);
+        }
+
+        RunningInstance memory runningInstance = _staticRunningInstances[localPosId];
+        return (true, runningInstance.startPoint, runningInstance.transformShift);
     }
 
     function getCondition() external view returns (ICondition)
