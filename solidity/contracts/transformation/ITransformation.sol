@@ -13,6 +13,31 @@ interface ITransformation is IOwnable
     /// @param x The index value to be processed.
     /// @param args Array containing arguments for this operator.
     function run(uint32 x, uint32[] calldata args) external view returns (uint32);
+
+    /// @notice Run the operator iteratively over a contiguous range of
+    /// operation indices, starting from `startX` at operation `startOp`.
+    /// Returns the resulting space [x_0, x_1, ..., x_{count-1}] where
+    /// x_0 = startX and x_{i+1} = run(x_i, args) with the implicit op
+    /// index being startOp + i.
+    ///
+    /// @dev Default implementation in TransformationBase iterates `run`
+    /// inside a single CALL frame, eliminating per-step external CALL
+    /// overhead. Concrete transformations may override with a closed-form
+    /// evaluator.
+    function runRange(uint32 startX, uint32 startOp, uint32 count, uint32[] calldata args)
+        external view returns (uint32[] memory);
+
+    /// @notice Sparse evaluation: return the iterated value at each
+    /// `opOffsets[i]` steps from `startX`, where step i corresponds to
+    /// operation index `startOp + i`. `opOffsets` MUST be sorted in
+    /// non-decreasing order.
+    ///
+    /// @dev Default implementation iterates once from `startX` up to the
+    /// largest offset and emits at the requested offsets. Concrete
+    /// transformations with closed-form semantics may override to skip
+    /// the iteration entirely.
+    function runAt(uint32 startX, uint32 startOp, uint32[] calldata opOffsets, uint32[] calldata args)
+        external view returns (uint32[] memory);
 }
 
 contract CallDef

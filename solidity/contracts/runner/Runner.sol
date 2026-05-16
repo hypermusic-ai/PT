@@ -62,48 +62,80 @@ contract Runner is IRunner, OwnableBase
         _registry = IRegistry(registryAddr);
     }
 
-    function genSpace(IConnector connector, uint32 dimId, RunningInstance memory runningInstance, uint32 particlesCount) private view returns (uint32[] memory)
+    function collectParticleSpace(IConnector connector, uint32 dimId, RunningInstance memory runningInstance, uint32[] memory particleIndexes) private view returns (uint32[] memory)
     {
         assert(dimId < connector.getDimensionsCount());
 
-        uint32[] memory space = new uint32[](particlesCount);
-
-        uint32 x = runningInstance.startPoint;
-        for(uint32 opId = 0; opId < particlesCount; ++opId)
+        uint32 length = uint32(particleIndexes.length);
+        if(length == 0)
         {
-            space[opId] = x;
-            // calculate next element in space
-            x = connector.transform(dimId, opId + runningInstance.transformShift, x);
+            return new uint32[](0);
         }
 
-        return space;
-    }
-
-    function collectParticleSpace(IConnector connector, uint32 dimId, RunningInstance memory runningInstance, uint32[] memory particleIndexes) private view returns (uint32[] memory)
-    {   
-        assert(dimId < connector.getDimensionsCount());
-
-        // need to generate space from 0 up to max(particleIndexes) + 1
-        // we find the last index which will be collected
-        uint32 spaceSize = 0;
-        for(uint32 i = 0; i < particleIndexes.length; ++i)
+        // Detect the strongest property the selection has:
+        //  - contiguous: particleIndexes[i] = first + i (stride 1)
+        //  - sorted:     particleIndexes[i] >= particleIndexes[i-1]
+        // Both let us avoid allocating a dense space[0..max] inside the
+        // runner. Contiguous is the common case at the root of gen().
+        bool contiguous = true;
+        bool sorted = true;
+        uint32 firstIndex = particleIndexes[0];
+        uint32 maxIndex = firstIndex;
+        for(uint32 i = 1; i < length; ++i)
         {
-            if(particleIndexes[i] > spaceSize)spaceSize = particleIndexes[i];
+            uint32 cur = particleIndexes[i];
+            uint32 prev = particleIndexes[i - 1];
+            if(cur != firstIndex + i)
+            {
+                contiguous = false;
+            }
+            if(cur < prev)
+            {
+                sorted = false;
+            }
+            if(cur > maxIndex)
+            {
+                maxIndex = cur;
+            }
+            if(!contiguous && !sorted)
+            {
+                break;
+            }
         }
-        spaceSize += 1;
 
-        // generate space
-        uint32[] memory space;
-        // because we need to collect up to this space element [max(particleIndexes)]
-        space = genSpace(connector, dimId, runningInstance, spaceSize);
+        if(contiguous && firstIndex == 0)
+        {
+            return connector.transformRange(
+                dimId,
+                runningInstance.transformShift,
+                runningInstance.startPoint,
+                length);
+        }
 
-        // collect selected indices from space
-        uint32[] memory elements = new uint32[](particleIndexes.length);
-        for(uint32 i = 0; i < particleIndexes.length; ++i)
+        if(sorted)
+        {
+            return connector.transformAt(
+                dimId,
+                runningInstance.transformShift,
+                runningInstance.startPoint,
+                particleIndexes);
+        }
+
+        // Fallback for unsorted selections: materialize space up to
+        // max(particleIndexes)+1 via a single batched CALL, then pick
+        // the requested indices.
+        uint32[] memory space = connector.transformRange(
+            dimId,
+            runningInstance.transformShift,
+            runningInstance.startPoint,
+            maxIndex + 1);
+        
+        uint32[] memory elements = new uint32[](length);
+        for(uint32 i = 0; i < length; ++i)
         {
             elements[i] = space[particleIndexes[i]];
         }
-
+        
         return elements;
     }
 
