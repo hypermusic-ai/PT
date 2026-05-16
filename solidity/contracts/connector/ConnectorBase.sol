@@ -374,6 +374,136 @@ abstract contract ConnectorBase is IConnector, OwnableConstructorBase
         return _transformations[dimId][txId].run(x, _transformationsCallDef.getArgs(dimId, txId));
     }
 
+    /// @dev Batched contiguous evaluation.
+    ///
+    /// For a dimension with a single transformation (the common case)
+    /// we forward the entire range to that transformation's `runRange`
+    /// in one CALL, letting the transformation contract execute the
+    /// per-step loop internally.
+    ///
+    /// For a dimension whose transformation list cycles per step
+    /// (txId = opId % len), each step must dispatch to a different
+    /// transformation. We still cannot use a single `runRange` CALL,
+    /// but we hoist all SLOADs / CallDef fetches out of the loop so
+    /// each iteration pays only one warm external CALL.
+    function transformRange(uint32 dimId, uint32 startOp, uint32 startX, uint32 count)
+        external view returns (uint32[] memory)
+    {
+        require(dimId < _transformations.length, "invalid dimension id");
+
+        uint32[] memory space = new uint32[](count);
+        if(count == 0)
+        {
+            return space;
+        }
+
+        uint32 dimLength = uint32(_transformations[dimId].length);
+
+        if(dimLength == 0)
+        {
+            for(uint32 i = 0; i < count; ++i)
+            {
+                space[i] = startX;
+            }
+            return space;
+        }
+
+        if(dimLength == 1)
+        {
+            ITransformation transformation = _transformations[dimId][0];
+            uint32[] memory args = _transformationsCallDef.getArgs(dimId, 0);
+            return transformation.runRange(startX, startOp, count, args);
+        }
+
+        // Multi-transformation cycle: resolve once, then iterate.
+        (ITransformation[] memory txs, uint32[][] memory argsList) =
+            _cacheDimensionTransformations(dimId, dimLength);
+
+        uint32 x = startX;
+        space[0] = x;
+        for(uint32 i = 1; i < count; ++i)
+        {
+            uint32 txId = (startOp + i - 1) % dimLength;
+            x = txs[txId].run(x, argsList[txId]);
+            space[i] = x;
+        }
+        return space;
+    }
+
+    /// @dev Batched sparse evaluation. Output length equals
+    /// opOffsets.length; we never materialize a space[0..max(offset)+1]
+    /// at the runner level. Like `transformRange`, this honors per-step
+    /// transformation cycling for dimensions with len > 1.
+    function transformAt(uint32 dimId, uint32 startOp, uint32 startX, uint32[] calldata opOffsets)
+        external view returns (uint32[] memory)
+    {
+        require(dimId < _transformations.length, "invalid dimension id");
+
+        uint32 length = uint32(opOffsets.length);
+        uint32[] memory out = new uint32[](length);
+        if(length == 0)
+        {
+            return out;
+        }
+
+        uint32 dimLength = uint32(_transformations[dimId].length);
+
+        if(dimLength == 0)
+        {
+            for(uint32 i = 0; i < length; ++i)
+            {
+                out[i] = startX;
+            }
+            return out;
+        }
+
+        if(dimLength == 1)
+        {
+            ITransformation transformation = _transformations[dimId][0];
+            uint32[] memory args = _transformationsCallDef.getArgs(dimId, 0);
+            return transformation.runAt(startX, startOp, opOffsets, args);
+        }
+
+        // Multi-transformation cycle: iterate up to max offset, dispatch
+        // per step, and emit at the requested offsets. opOffsets MUST be
+        // sorted in non-decreasing order (Runner guarantees this on the
+        // sorted path).
+        (ITransformation[] memory txs, uint32[][] memory argsList) =
+            _cacheDimensionTransformations(dimId, dimLength);
+
+        uint32 maxOffset = opOffsets[length - 1];
+        uint32 x = startX;
+        uint32 nextOutIndex = 0;
+        while(nextOutIndex < length && opOffsets[nextOutIndex] == 0)
+        {
+            out[nextOutIndex] = x;
+            ++nextOutIndex;
+        }
+        for(uint32 step = 1; step <= maxOffset && nextOutIndex < length; ++step)
+        {
+            uint32 txId = (startOp + step - 1) % dimLength;
+            x = txs[txId].run(x, argsList[txId]);
+            while(nextOutIndex < length && opOffsets[nextOutIndex] == step)
+            {
+                out[nextOutIndex] = x;
+                ++nextOutIndex;
+            }
+        }
+        return out;
+    }
+
+    function _cacheDimensionTransformations(uint32 dimId, uint32 dimLength)
+        private view returns (ITransformation[] memory txs, uint32[][] memory argsList)
+    {
+        txs = new ITransformation[](dimLength);
+        argsList = new uint32[][](dimLength);
+        for(uint32 t = 0; t < dimLength; ++t)
+        {
+            txs[t] = _transformations[dimId][t];
+            argsList[t] = _transformationsCallDef.getArgs(dimId, t);
+        }
+    }
+
     function getCompositesCount() external view returns (uint32)
     {
         return uint32(_composites.length);
