@@ -28,6 +28,11 @@ interface IRegistry
         string conditionName;
         int32[] conditionArgs;
         bytes32 formatHash;
+        // Static running instances (parallel arrays keyed by local position id) so that a connector's
+        // full state is reconstructable from chain logs alone.
+        uint32[] staticRiPositions;
+        uint32[] staticRiStartPoints;
+        uint32[] staticRiTransformShifts;
     }
 
     event TransformationAdded(address caller, string name, address transformationAddr, address owner, uint32 argsCount);
@@ -45,7 +50,10 @@ interface IRegistry
         string[] bindingNames,
         string conditionName,
         int32[] conditionArgs,
-        bytes32 formatHash
+        bytes32 formatHash,
+        uint32[] staticRiPositions,
+        uint32[] staticRiStartPoints,
+        uint32[] staticRiTransformShifts
     );
 
     event TransformationRemoved(address caller, string name);

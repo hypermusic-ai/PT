@@ -323,7 +323,10 @@ abstract contract ConnectorBase is IConnector, OwnableConstructorBase
             bindingNames: bindingNames,
             conditionName: conditionName,
             conditionArgs: conditionCheckArgs,
-            formatHash: _formatHash
+            formatHash: _formatHash,
+            staticRiPositions: staticRiPositions,
+            staticRiStartPoints: staticRiStartPoints,
+            staticRiTransformShifts: staticRiTransformShifts
         });
 
         _registry.registerConnector(_name, this, registration);
