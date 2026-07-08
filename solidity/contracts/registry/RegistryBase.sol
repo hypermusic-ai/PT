@@ -199,7 +199,11 @@ contract RegistryBase is IRegistry, OwnableBase
             emittedRegistration.formatHash,
             emittedRegistration.staticRiPositions,
             emittedRegistration.staticRiStartPoints,
-            emittedRegistration.staticRiTransformShifts
+            emittedRegistration.staticRiTransformShifts,
+            emittedRegistration.transformationDimIds,
+            emittedRegistration.transformationNames,
+            emittedRegistration.transformationArgCounts,
+            emittedRegistration.transformationArgs
         );
     }
 

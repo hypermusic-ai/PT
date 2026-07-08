@@ -77,7 +77,11 @@ abstract contract ConnectorBase is IConnector, OwnableConstructorBase
         uint32[] memory staticRiStartPoints,
         uint32[] memory staticRiTransformShifts,
         string memory conditionName,
-        int32[] memory conditionCheckArgs
+        int32[] memory conditionCheckArgs,
+        uint32[] memory transformationDimIds,
+        string[] memory transformationNames,
+        uint32[] memory transformationArgCounts,
+        int32[] memory transformationArgs
     ) internal
     {
         require(_finalized == false, "already finalized");
@@ -326,7 +330,11 @@ abstract contract ConnectorBase is IConnector, OwnableConstructorBase
             formatHash: _formatHash,
             staticRiPositions: staticRiPositions,
             staticRiStartPoints: staticRiStartPoints,
-            staticRiTransformShifts: staticRiTransformShifts
+            staticRiTransformShifts: staticRiTransformShifts,
+            transformationDimIds: transformationDimIds,
+            transformationNames: transformationNames,
+            transformationArgCounts: transformationArgCounts,
+            transformationArgs: transformationArgs
         });
 
         _registry.registerConnector(_name, this, registration);

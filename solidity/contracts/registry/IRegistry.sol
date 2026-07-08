@@ -33,6 +33,13 @@ interface IRegistry
         uint32[] staticRiPositions;
         uint32[] staticRiStartPoints;
         uint32[] staticRiTransformShifts;
+        // Per-dimension transformation definitions (parallel arrays ordered by (dimId, indexWithinDim))
+        // so that a full ConnectorRecord is reconstructable from chain logs alone.
+        // transformationArgs is a single flattened array consumed left-to-right by transformationArgCounts.
+        uint32[] transformationDimIds;
+        string[] transformationNames;
+        uint32[] transformationArgCounts;
+        int32[]  transformationArgs;
     }
 
     event TransformationAdded(address caller, string name, address transformationAddr, address owner, uint32 argsCount);
@@ -53,7 +60,11 @@ interface IRegistry
         bytes32 formatHash,
         uint32[] staticRiPositions,
         uint32[] staticRiStartPoints,
-        uint32[] staticRiTransformShifts
+        uint32[] staticRiTransformShifts,
+        uint32[] transformationDimIds,
+        string[] transformationNames,
+        uint32[] transformationArgCounts,
+        int32[] transformationArgs
     );
 
     event TransformationRemoved(address caller, string name);
