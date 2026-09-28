@@ -2,9 +2,9 @@
 
 pragma solidity >=0.8.2 <0.9.0;
 
-import "../ownable/IOwnable.sol";
+import "../entity/PTEntity.sol";
 
-interface ICondition is IOwnable
+interface ICondition is IPTEntity
 {
     /// @notice Get number of arguments for condition
     function getArgsCount() external view returns(uint32);
@@ -13,7 +13,4 @@ interface ICondition is IOwnable
     ///
     /// @param args Array containing arguments for this condition.
     function check(int32[] calldata args) external view returns (bool);
-
-    /// @notice Get name of condition
-    function getName() external view returns(string memory);
 }

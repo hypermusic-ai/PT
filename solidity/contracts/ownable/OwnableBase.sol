@@ -9,6 +9,10 @@ abstract contract OwnableBase is IOwnable, Initializable, UUPSUpgradeable
 {
     address private _owner;
 
+    // Reserved so a variable added here later does not shift the storage of the
+    // upgradeable contracts that inherit from this one.
+    uint256[49] private __gap;
+
     // modifier to check if caller is owner
     modifier isOwner() {
         require(msg.sender == _owner, "Caller is not owner");
@@ -21,11 +25,15 @@ abstract contract OwnableBase is IOwnable, Initializable, UUPSUpgradeable
     }
 
     function __OwnableBase_init(address owner_) internal onlyInitializing {
-        _owner = owner_;
-        emit OwnerSet(address(0), _owner);
+        _setOwner(owner_);
     }
 
     function changeOwner(address newOwner) external isOwner {
+        _setOwner(newOwner);
+    }
+
+    function _setOwner(address newOwner) private {
+        require(newOwner != address(0), "owner is zero");
         emit OwnerSet(_owner, newOwner);
         _owner = newOwner;
     }

@@ -50,16 +50,37 @@ struct DecomposeResult
 
 interface IRunner
 {
+    function protocolId() external pure returns (bytes32);
+    function protocolVersion() external pure returns (uint64);
+    function registry() external view returns (address);
     function gen(string memory name, uint32 particlesCount, PositionedRunningInstance[] memory dynamicRi) external view returns (Particles[] memory);
 }
 
 contract Runner is IRunner, OwnableBase
 {
+    bytes32 private constant _PROTOCOL_ID = keccak256("hypermusic.pt");
+    uint64 private constant _PROTOCOL_VERSION = 1;
+
     IRegistry private _registry;
 
     function initialize(address registryAddr) external initializer {
         __OwnableBase_init(msg.sender);
         _registry = IRegistry(registryAddr);
+    }
+
+    function protocolId() external pure returns (bytes32)
+    {
+        return _PROTOCOL_ID;
+    }
+
+    function protocolVersion() external pure returns (uint64)
+    {
+        return _PROTOCOL_VERSION;
+    }
+
+    function registry() external view returns (address)
+    {
+        return address(_registry);
     }
 
     function collectParticleSpace(IConnector connector, uint32 dimId, RunningInstance memory runningInstance, uint32[] memory particleIndexes) private view returns (uint32[] memory)

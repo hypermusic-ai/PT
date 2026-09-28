@@ -8,14 +8,13 @@ import "../transformation/ITransformation.sol";
 import "../condition/ICondition.sol";
 import "../types/RunningInstance.sol";
 
-import "../ownable/OwnableConstructorBase.sol";
+import "../entity/PTEntity.sol";
 import "../error/Error.sol";
 import "../utils/FormatHashLib.sol";
 
-abstract contract ConnectorBase is IConnector, OwnableConstructorBase
+abstract contract ConnectorBase is IConnector, PTEntityBase
 {
     IRegistry                private _registry;
-    string                   private _name;
 
     ITransformation[][]      private _transformations;
     CallDef                  private _transformationsCallDef;
@@ -36,17 +35,31 @@ abstract contract ConnectorBase is IConnector, OwnableConstructorBase
 
     bool                     private _finalized;
 
-    constructor(address registryAddr, string memory name, uint32 dimensionsCount)
-        OwnableConstructorBase(msg.sender)
+    constructor(
+        address registryAddr,
+        string memory name,
+        uint32 dimensionsCount,
+        bytes32 contentHash_,
+        bytes32 metadataHash_)
+        PTEntityBase(name, contentHash_, metadataHash_)
     {
         require(registryAddr != address(0), "registry is zero");
         require(dimensionsCount > 0, "dimensions is zero");
 
         _registry = IRegistry(registryAddr);
-        _name = name;
 
         _transformationsCallDef = new CallDef(dimensionsCount);
         _transformations = new ITransformation[][](dimensionsCount);
+    }
+
+    function ptKind() external pure virtual override returns (uint8)
+    {
+        return PTEntityKind.CONNECTOR;
+    }
+
+    function registry() external view returns (address)
+    {
+        return address(_registry);
     }
 
     function getCallDef() internal view returns (CallDef)
@@ -77,11 +90,7 @@ abstract contract ConnectorBase is IConnector, OwnableConstructorBase
         uint32[] memory staticRiStartPoints,
         uint32[] memory staticRiTransformShifts,
         string memory conditionName,
-        int32[] memory conditionCheckArgs,
-        uint32[] memory transformationDimIds,
-        string[] memory transformationNames,
-        uint32[] memory transformationArgCounts,
-        int32[] memory transformationArgs
+        int32[] memory conditionCheckArgs
     ) internal
     {
         require(_finalized == false, "already finalized");
@@ -317,33 +326,7 @@ abstract contract ConnectorBase is IConnector, OwnableConstructorBase
         require(scalarHashId == _scalars, "invalid scalar hashes");
         _formatHash = FormatHashLib.computeFormatHash(_scalarHashes);
 
-        IRegistry.ConnectorRegistration memory registration = IRegistry.ConnectorRegistration({
-            owner: msg.sender,
-            dimensionsCount: dimensionsCount,
-            compositeDimIds: compositeDimIds,
-            compositeNames: compositeNames,
-            bindingDimIds: bindingDimIds,
-            bindingSlotIds: bindingSlotIds,
-            bindingNames: bindingNames,
-            conditionName: conditionName,
-            conditionArgs: conditionCheckArgs,
-            formatHash: _formatHash,
-            staticRiPositions: staticRiPositions,
-            staticRiStartPoints: staticRiStartPoints,
-            staticRiTransformShifts: staticRiTransformShifts,
-            transformationDimIds: transformationDimIds,
-            transformationNames: transformationNames,
-            transformationArgCounts: transformationArgCounts,
-            transformationArgs: transformationArgs
-        });
-
-        _registry.registerConnector(_name, this, registration);
         _finalized = true;
-    }
-
-    function getName() external view returns(string memory)
-    {
-        return _name;
     }
 
     function getScalarsCount() external view returns (uint32)

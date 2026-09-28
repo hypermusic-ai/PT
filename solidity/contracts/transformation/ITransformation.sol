@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity >=0.8.2 <0.9.0;
 
-import "../ownable/IOwnable.sol";
+import "../entity/PTEntity.sol";
 
-interface ITransformation is IOwnable
+interface ITransformation is IPTEntity
 {
     /// @notice Get number of arguments for transformation
     function getArgsCount() external view returns(uint32);

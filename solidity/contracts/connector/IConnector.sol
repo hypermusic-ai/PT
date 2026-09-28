@@ -2,14 +2,15 @@
 
 pragma solidity >=0.8.2 <0.9.0;
 
-import "../ownable/IOwnable.sol";
+import "../entity/PTEntity.sol";
 
 import "../condition/ICondition.sol";
 
-interface IConnector is IOwnable
+interface IConnector is IPTEntity
 {
-    function getName() external view returns(string memory);
-    
+    /// @notice The registry this connector resolves its dependencies in.
+    function registry() external view returns (address);
+
     function getScalarsCount() external view returns (uint32);
     function getScalarHash(uint32 scalarId) external view returns (bytes32);
     function getFormatHash() external view returns (bytes32);
