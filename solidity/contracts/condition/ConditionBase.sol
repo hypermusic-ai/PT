@@ -2,39 +2,25 @@
 
 pragma solidity >=0.8.2 <0.9.0;
 import "./ICondition.sol";
-import "../registry/IRegistry.sol";
-import "../ownable/OwnableConstructorBase.sol";
+import "../entity/PTEntity.sol";
 
-abstract contract ConditionBase is ICondition, OwnableConstructorBase
-{    
-    IRegistry    private _registry;
-    string      private _name;
-    uint32      private _argc;
+abstract contract ConditionBase is ICondition, PTEntityBase
+{
+    uint32 private _argc;
 
-    constructor(address registryAddr, string memory name, uint32 argc)
-        OwnableConstructorBase(msg.sender)
+    constructor(string memory name, uint32 argc, bytes32 contentHash_, bytes32 metadataHash_)
+        PTEntityBase(name, contentHash_, metadataHash_)
     {
-        require(registryAddr != address(0), "registry is zero");
-
-        _registry = IRegistry(registryAddr);
-        _name = name;
         _argc = argc;
+    }
 
-        IRegistry.ConditionRegistration memory registration = IRegistry.ConditionRegistration({
-            owner: msg.sender,
-            argsCount: _argc
-        });
-
-        _registry.registerCondition(_name, this, registration);
+    function ptKind() external pure virtual override returns (uint8)
+    {
+        return PTEntityKind.CONDITION;
     }
 
     function getArgsCount() external view returns(uint32)
     {
         return _argc;
-    }
-
-    function getName() external view returns(string memory)
-    {
-        return _name;
     }
 }

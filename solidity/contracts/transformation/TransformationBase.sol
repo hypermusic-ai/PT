@@ -2,8 +2,7 @@
 pragma solidity >=0.8.2 <0.9.0;
 
 import "./ITransformation.sol";
-import "../registry/IRegistry.sol";
-import "../ownable/OwnableConstructorBase.sol";
+import "../entity/PTEntity.sol";
 
 /// @dev Future optimization (not yet implemented):
 ///
@@ -20,27 +19,19 @@ import "../ownable/OwnableConstructorBase.sol";
 /// concrete contract and emit values directly. The on-chain `Runner`
 /// always dispatches through the public ABI, so this override is
 /// picked up automatically.
-abstract contract TransformationBase is ITransformation, OwnableConstructorBase
+abstract contract TransformationBase is ITransformation, PTEntityBase
 {
-    IRegistry    private _registry;
-    string      private _name;
-    uint32      internal _argc;
+    uint32 internal _argc;
 
-    constructor(address registryAddr, string memory name, uint32 argc)
-        OwnableConstructorBase(msg.sender)
+    constructor(string memory name, uint32 argc, bytes32 contentHash_, bytes32 metadataHash_)
+        PTEntityBase(name, contentHash_, metadataHash_)
     {
-        require(registryAddr != address(0), "registry is zero");
-
-        _registry = IRegistry(registryAddr);
-        _name = name;
         _argc = argc;
+    }
 
-        IRegistry.TransformationRegistration memory registration = IRegistry.TransformationRegistration({
-            owner: msg.sender,
-            argsCount: _argc
-        });
-
-        _registry.registerTransformation(_name, this, registration);
+    function ptKind() external pure virtual override returns (uint8)
+    {
+        return PTEntityKind.TRANSFORMATION;
     }
 
     function getArgsCount() external view returns(uint32)
