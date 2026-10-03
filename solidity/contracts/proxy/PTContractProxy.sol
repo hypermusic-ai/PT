@@ -5,12 +5,14 @@ import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 interface IPTInitializable
 {
-    function initialize(address registryAddr) external;
+    function initialize() external;
 }
 
+/// ERC-1967 proxy of an upgradeable PT contract, the registry or the runner. It initializes
+/// the implementation in its constructor, so the deployer becomes the upgrade owner.
 contract PTContractProxy is ERC1967Proxy
 {
-    constructor(address implementation, address registryAddr)
-        ERC1967Proxy(implementation, abi.encodeCall(IPTInitializable.initialize, (registryAddr)))
+    constructor(address implementation)
+        ERC1967Proxy(implementation, abi.encodeCall(IPTInitializable.initialize, ()))
     {}
 }

@@ -52,8 +52,7 @@ interface IRunner
 {
     function protocolId() external pure returns (bytes32);
     function protocolVersion() external pure returns (uint64);
-    function registry() external view returns (address);
-    function gen(string memory name, uint32 particlesCount, PositionedRunningInstance[] memory dynamicRi) external view returns (Particles[] memory);
+    function gen(address registryAddr, string memory name, uint32 particlesCount, PositionedRunningInstance[] memory dynamicRi) external view returns (Particles[] memory);
 }
 
 contract Runner is IRunner, OwnableBase
@@ -61,11 +60,8 @@ contract Runner is IRunner, OwnableBase
     bytes32 private constant _PROTOCOL_ID = keccak256("hypermusic.pt");
     uint64 private constant _PROTOCOL_VERSION = 1;
 
-    IRegistry private _registry;
-
-    function initialize(address registryAddr) external initializer {
+    function initialize() external initializer {
         __OwnableBase_init(msg.sender);
-        _registry = IRegistry(registryAddr);
     }
 
     function protocolId() external pure returns (bytes32)
@@ -76,11 +72,6 @@ contract Runner is IRunner, OwnableBase
     function protocolVersion() external pure returns (uint64)
     {
         return _PROTOCOL_VERSION;
-    }
-
-    function registry() external view returns (address)
-    {
-        return address(_registry);
     }
 
     function collectParticleSpace(IConnector connector, uint32 dimId, RunningInstance memory runningInstance, uint32[] memory particleIndexes) private view returns (uint32[] memory)
@@ -117,10 +108,6 @@ contract Runner is IRunner, OwnableBase
             if(cur > maxIndex)
             {
                 maxIndex = cur;
-            }
-            if(!contiguous && !sorted)
-            {
-                break;
             }
         }
 
@@ -700,10 +687,12 @@ contract Runner is IRunner, OwnableBase
         });
     }
 
-    function gen(string memory name, uint32 particlesCount, PositionedRunningInstance[] memory dynamicRi) external view returns (Particles[] memory)
+    /// The runner holds no registry of its own: the root connector is looked up in
+    /// `registryAddr`, and every dependency is resolved by the connector in its own registry.
+    function gen(address registryAddr, string memory name, uint32 particlesCount, PositionedRunningInstance[] memory dynamicRi) external view returns (Particles[] memory)
     {
         require(particlesCount > 0, "number of particles must be greater than 0");
-        require(_registry.containsConnector(name), "cannot find connector");
+        require(IRegistry(registryAddr).containsConnector(name), "cannot find connector");
 
         for(uint32 i = 1; i < dynamicRi.length; ++i)
         {
@@ -719,7 +708,7 @@ contract Runner is IRunner, OwnableBase
             }
         }
 
-        IConnector connector = _registry.getConnector(name);
+        IConnector connector = IRegistry(registryAddr).getConnector(name);
 
         uint32 numberOfScalars = connector.getScalarsCount();
         assert(numberOfScalars > 0);
